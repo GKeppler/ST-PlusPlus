@@ -224,7 +224,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
             lr = args.lr * (1 - iters / total_iters) ** 0.9
             optimizer.param_groups[0]["lr"] = lr
             optimizer.param_groups[1]["lr"] = lr * 1.0 if args.model == 'deeplabv2' else lr * 10.0
-            wandb.log({"loss": loss.item()},step=epoch)
+            wandb.log({"loss": loss.item(),"epoch": epoch})
 
             tbar.set_description('Loss: %.3f' % (total_loss / (i + 1)))
 
@@ -235,15 +235,17 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
         with torch.no_grad():
             for img, mask, _ in tbar:
+                img_save = img.copy()
                 img = img.cuda()
                 pred = model(img)
+                pred_save = pred.copy()
                 pred = torch.argmax(pred, dim=1)
 
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
                 mIOU = metric.evaluate()[-1]
-                wandb.log(wandb.Image(img, masks={
+                wandb.log(wandb.Image(img_save, masks={
                     "predictions" : {
-                        "mask_data" : pred,
+                        "mask_data" : pred_save,
                         "class_labels" : "unknown"
                     },
                     "ground_truth" : {
