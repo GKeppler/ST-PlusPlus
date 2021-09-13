@@ -51,7 +51,7 @@ def parse_args():
 
 def main(args):
     wandb.init(project='ST++', entity='gkeppler')
-    wandb.configx.update(args)
+    wandb.config.update(args)
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
     if not os.path.exists(args.pseudo_mask_path):
