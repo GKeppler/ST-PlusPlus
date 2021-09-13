@@ -46,7 +46,7 @@ def parse_args():
                         help='whether to use ST++')
 
     args = parser.parse_args()
-    wandb.config.update(args)
+    wandb.config.add(args)
     return args
 
 
