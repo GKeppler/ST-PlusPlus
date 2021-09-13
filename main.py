@@ -247,7 +247,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 mIOU = metric.evaluate()[-1]
                 if i < 10:
                     wandb.log({"img": [wandb.Image(img, caption="Cafe")]})
-                    wandb.log({"img": [wandb.Image(cv2.imwrite(pred, "image.png"), caption="Cafe")]})
+                    wandb.log({"img": [wandb.Image(cv2.imwrite(pred.cpu().numpy(), "image.png"), caption="Cafe")]})
                     #wandb.log(wandb.Image(img), masks={
                     #     "predictions" : {
                     #         "mask_data" : img[:,:,0],
