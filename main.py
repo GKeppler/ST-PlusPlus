@@ -235,21 +235,19 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
         with torch.no_grad():
             for img, mask, _ in tbar:
-                img_save = img.copy()
                 img = img.cuda()
                 pred = model(img)
-                pred_save = pred.copy()
                 pred = torch.argmax(pred, dim=1)
 
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
                 mIOU = metric.evaluate()[-1]
-                wandb.log(wandb.Image(img_save, masks={
+                wandb.log(wandb.Image(img, masks={
                     "predictions" : {
-                        "mask_data" : pred_save,
+                        "mask_data" : pred,
                         "class_labels" : "unknown"
                     },
                     "ground_truth" : {
-                        "mask_data" : mask,
+                        "mask_data" : pred,
                         "class_labels" : "unknown"
                     }
                 }))
