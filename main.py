@@ -242,7 +242,8 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
                 mIOU = metric.evaluate()[-1]
-                wandb.log(wandb.Image(img))#, masks={
+                wandb.log({"img": [wandb.Image(img, caption="Cafe")]})
+                #wandb.log(wandb.Image(img), masks={
                 #     "predictions" : {
                 #         "mask_data" : img[:,:,0],
                 #         "class_labels" : "unknown"
