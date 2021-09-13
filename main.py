@@ -248,7 +248,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 if i < 10:
                     # wandb.log({"img": [wandb.Image(img, caption="O")]})
                     # wandb.log({"img": [wandb.Image(pred.cpu().numpy(), caption="Cafe")]})
-                    wandb.log(wandb.Image(img), masks={
+                    wandb.log(wandb.Image(img, masks={
                         "predictions" : {
                             "mask_data" : pred.cpu().numpy(),
                             "class_labels" : "unknown"
@@ -257,7 +257,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                             "mask_data" : pred.cpu().numpy(),
                             "class_labels" : "unknown"
                         }
-                    })
+                    }))
                 tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
 
         mIOU *= 100.0
