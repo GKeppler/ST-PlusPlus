@@ -15,7 +15,7 @@ from torch.optim import SGD
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import wandb
-
+import torch.utils.data.SubsetRandomSampler
 
 MODE = None
 
@@ -75,7 +75,7 @@ def main(args):
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.labeled_id_path)
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                             pin_memory=True, num_workers=16, drop_last=True)
+                             pin_memory=True, num_workers=16, drop_last=True,sampler=SubsetRandomSampler([0:100]))
 
     model, optimizer = init_basic_elems(args)
     print('\nParams: %.1fM' % count_params(model))
@@ -241,16 +241,16 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
                 mIOU = metric.evaluate()[-1]
-                wandb.log(wandb.Image(img, masks={
-                    "predictions" : {
-                        "mask_data" : mask.sum(-1),
-                        "class_labels" : "unknown"
-                    },
-                    "ground_truth" : {
-                        "mask_data" : mask.sum(-1),
-                        "class_labels" : "unknown"
-                    }
-                }))
+                # wandb.log(wandb.Image(img, masks={
+                #     "predictions" : {
+                #         "mask_data" : mask.sum(-1),
+                #         "class_labels" : "unknown"
+                #     },
+                #     "ground_truth" : {
+                #         "mask_data" : mask.sum(-1),
+                #         "class_labels" : "unknown"
+                #     }
+                # }))
                 tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
 
         mIOU *= 100.0
