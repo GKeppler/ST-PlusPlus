@@ -250,11 +250,11 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                     # wandb.log({"img": [wandb.Image(pred.cpu().numpy(), caption="Cafe")]})
                     wandb.log(wandb.Image(img, masks={
                         "predictions" : {
-                            "mask_data" : pred.cpu().numpy(),
+                            "mask_data" : pred.cpu().numpy()[:,:,0],
                             "class_labels" : "unknown"
                         },
                         "ground_truth" : {
-                            "mask_data" : pred.cpu().numpy(),
+                            "mask_data" : pred.cpu().numpy()[:,:,0],
                             "class_labels" : "unknown"
                         }
                     }))
