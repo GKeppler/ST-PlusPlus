@@ -15,6 +15,7 @@ from torch.optim import SGD
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import wandb
+import cv2
 
 MODE = None
 
@@ -234,6 +235,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
         model.eval()
         tbar = tqdm(valloader)
         i = 0
+        
         with torch.no_grad():
             for img, mask, _ in tbar:
                 i = i+1
@@ -245,7 +247,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 mIOU = metric.evaluate()[-1]
                 if i < 10:
                     wandb.log({"img": [wandb.Image(img, caption="Cafe")]})
-                    wandb.log({"img": [wandb.Image(pred, caption="Cafe")]})
+                    wandb.log({"img": [wandb.Image(cv2.imwrite(pred, "image.png"), caption="Cafe")]})
                     #wandb.log(wandb.Image(img), masks={
                     #     "predictions" : {
                     #         "mask_data" : img[:,:,0],
