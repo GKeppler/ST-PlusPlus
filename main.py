@@ -14,6 +14,7 @@ from torch.nn import CrossEntropyLoss, DataParallel
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+import wandb
 
 
 MODE = None
@@ -50,6 +51,7 @@ def parse_args():
 
 
 def main(args):
+    wandb.init(project='ST++', entity='gkeppler')
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
     if not os.path.exists(args.pseudo_mask_path):
@@ -163,6 +165,8 @@ def main(args):
 
     train(model, trainloader, valloader, criterion, optimizer, args)
 
+    wandb.finish()
+
 
 def init_basic_elems(args):
     model_zoo = {'deeplabv3plus': DeepLabV3Plus, 'pspnet': PSPNet, 'deeplabv2': DeepLabV2}
@@ -220,6 +224,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
             lr = args.lr * (1 - iters / total_iters) ** 0.9
             optimizer.param_groups[0]["lr"] = lr
             optimizer.param_groups[1]["lr"] = lr * 1.0 if args.model == 'deeplabv2' else lr * 10.0
+            wandb.log({"loss": loss.item()},step=epoch)
 
             tbar.set_description('Loss: %.3f' % (total_loss / (i + 1)))
 
@@ -236,10 +241,20 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
                 mIOU = metric.evaluate()[-1]
-
+                wandb.log(wandb.Image(img, masks={
+                    "predictions" : {
+                        "mask_data" : pred,
+                        "class_labels" : "unknown"
+                    },
+                    "ground_truth" : {
+                        "mask_data" : mask,
+                        "class_labels" : "unknown"
+                    }
+                }))
                 tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
 
         mIOU *= 100.0
+        wandb.log({"mIOU": mIOU},step=epoch)
         if mIOU > previous_best:
             if previous_best != 0:
                 os.remove(os.path.join(args.save_path, '%s_%s_%.2f.pth' % (args.model, args.backbone, previous_best)))

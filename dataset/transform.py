@@ -10,13 +10,13 @@ def crop(img, mask, size):
     w, h = img.size
     padw = size - w if w < size else 0
     padh = size - h if h < size else 0
-    img = ImageOps.expand(img, border=(0, 0, padw, padh), fill=0)
-    mask = ImageOps.expand(mask, border=(0, 0, padw, padh), fill=255)
+    img = ImageOps.expand(img, border=max(0, 0, padw, padh), fill=0)
+    mask = ImageOps.expand(mask, border=max(0, 0, padw, padh), fill=255)
 
     # cropping
     w, h = img.size
-    x = random.randint(0, w - size)
-    y = random.randint(0, h - size)
+    x = random.randint(0, abs(w - size))
+    y = random.randint(0, abs(h - size))
     img = img.crop((x, y, x + size, y + size))
     mask = mask.crop((x, y, x + size, y + size))
 
