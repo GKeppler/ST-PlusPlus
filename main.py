@@ -243,11 +243,11 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 mIOU = metric.evaluate()[-1]
                 wandb.log(wandb.Image(img, masks={
                     "predictions" : {
-                        "mask_data" : model(img),
+                        "mask_data" : mask,
                         "class_labels" : "unknown"
                     },
                     "ground_truth" : {
-                        "mask_data" : model(img),
+                        "mask_data" : mask,
                         "class_labels" : "unknown"
                     }
                 }))
