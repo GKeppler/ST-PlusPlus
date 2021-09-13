@@ -251,11 +251,11 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                     wandb.log(wandb.Image(img, masks={
                         "predictions" : {
                             "mask_data" : pred.cpu().numpy()[:,:,0],
-                            "class_labels" : 1
+                            "class_labels" : {0: "car", 1: "road"}
                         },
                         "ground_truth" : {
                             "mask_data" : pred.cpu().numpy()[:,:,0],
-                            "class_labels" : 2
+                            "class_labels" : {0: "car", 1: "road"}
                         }
                     }))
                 tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
