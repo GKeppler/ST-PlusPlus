@@ -15,7 +15,6 @@ from torch.optim import SGD
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import wandb
-import torch.utils.data.SubsetRandomSampler
 
 MODE = None
 
@@ -76,7 +75,7 @@ def main(args):
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
     subset_indices = (0,1,2)
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                             pin_memory=True, num_workers=16, drop_last=True,sampler=SubsetRandomSampler(subset_indices))
+                             pin_memory=True, num_workers=16, drop_last=True,sampler=torch.utils.data.SubsetRandomSampler(subset_indices))
 
     model, optimizer = init_basic_elems(args)
     print('\nParams: %.1fM' % count_params(model))
