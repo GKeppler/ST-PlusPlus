@@ -74,7 +74,7 @@ def main(args):
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.labeled_id_path)
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
     subset_indices = (0,1,2)
-    trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
+    trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=False,
                              pin_memory=True, num_workers=16, drop_last=True,sampler=torch.utils.data.SubsetRandomSampler(subset_indices))
 
     model, optimizer = init_basic_elems(args)
