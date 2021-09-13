@@ -46,12 +46,12 @@ def parse_args():
                         help='whether to use ST++')
 
     args = parser.parse_args()
-    wandb.config.add(args)
     return args
 
 
 def main(args):
     wandb.init(project='ST++', entity='gkeppler')
+    wandb.config.add(args)
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
     if not os.path.exists(args.pseudo_mask_path):
