@@ -242,16 +242,16 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
                 mIOU = metric.evaluate()[-1]
-                wandb.log(wandb.Image(img, masks={
-                    "predictions" : {
-                        "mask_data" : img[:,:,0],
-                        "class_labels" : "unknown"
-                    },
-                    "ground_truth" : {
-                        "mask_data" : img[:,:,0],
-                        "class_labels" : "unknown"
-                    }
-                }))
+                wandb.log(wandb.Image(img))#, masks={
+                #     "predictions" : {
+                #         "mask_data" : img[:,:,0],
+                #         "class_labels" : "unknown"
+                #     },
+                #     "ground_truth" : {
+                #         "mask_data" : img[:,:,0],
+                #         "class_labels" : "unknown"
+                #     }
+                # }))
                 tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
 
         mIOU *= 100.0
