@@ -233,26 +233,29 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
         model.eval()
         tbar = tqdm(valloader)
-
+        i = 0
         with torch.no_grad():
             for img, mask, _ in tbar:
+                i = i+1
                 img = img.cuda()
                 pred = model(img)
                 pred = torch.argmax(pred, dim=1)
 
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
                 mIOU = metric.evaluate()[-1]
-                wandb.log({"img": [wandb.Image(img, caption="Cafe")]})
-                #wandb.log(wandb.Image(img), masks={
-                #     "predictions" : {
-                #         "mask_data" : img[:,:,0],
-                #         "class_labels" : "unknown"
-                #     },
-                #     "ground_truth" : {
-                #         "mask_data" : img[:,:,0],
-                #         "class_labels" : "unknown"
-                #     }
-                # }))
+                if i < 10:
+                    wandb.log({"img": [wandb.Image(img, caption="Cafe")]})
+                    wandb.log({"img": [wandb.Image(pred, caption="Cafe")]})
+                    #wandb.log(wandb.Image(img), masks={
+                    #     "predictions" : {
+                    #         "mask_data" : img[:,:,0],
+                    #         "class_labels" : "unknown"
+                    #     },
+                    #     "ground_truth" : {
+                    #         "mask_data" : img[:,:,0],
+                    #         "class_labels" : "unknown"
+                    #     }
+                    # }))
                 tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
 
         mIOU *= 100.0
