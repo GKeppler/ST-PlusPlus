@@ -257,7 +257,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                             "mask_data" : pred.cpu().numpy(),
                             "class_labels" : "unknown"
                         }
-                    }))
+                    })
                 tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
 
         mIOU *= 100.0
