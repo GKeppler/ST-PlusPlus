@@ -244,7 +244,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 pred = model(img)
                 pred = torch.argmax(pred, dim=1)
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
-                print(pred.cpu().numpy(), mask.numpy())
+                print(pred.cpu().numpy().squeeze(x, axis=0), mask.numpy().squeeze(x, axis=0))
                 mIOU = metric.evaluate()[-1]
                 if i < 10:
                     #wandb.log({"img": [wandb.Image(img, caption="img")]})
@@ -253,11 +253,11 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                     class_lables.update({255:"black"})
                     wandb.log(wandb.Image(img, masks={
                         "predictions" : {
-                            "mask_data" : pred.cpu().numpy(),
+                            "mask_data" : pred.cpu().numpy().squeeze(x, axis=0),
                             "class_labels" : class_lables
                         },
                         "ground_truth" : {
-                            "mask_data" : pred.cpu().numpy(),
+                            "mask_data" : pred.cpu().numpy().squeeze(x, axis=0),
                             "class_labels" : class_lables
                         }
                     }))
