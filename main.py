@@ -244,7 +244,8 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
                 #print(pred.cpu().numpy().squeeze(x, axis=0), mask.numpy().squeeze(x, axis=0))
                 mIOU = metric.evaluate()[-1]
-                if i < 10:
+                wandb.log({"mIOU": mIOU})
+                if i <= 10:
                     #wandb.log({"img": [wandb.Image(img, caption="img")]})
                     #wandb.log({"mask": [wandb.Image(pred.cpu().numpy(), caption="mask")]})
                     class_lables = dict((el,"test") for el in list(range(22)))
@@ -259,10 +260,9 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                             "class_labels" : class_lables
                         }
                     })})
-                tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
+                tbar.set_description('mean mIOU: %.2f' % (mIOU * 100.0))
 
         mIOU *= 100.0
-        wandb.log({"mIOU": mIOU},step=epoch)
         if mIOU > previous_best:
             if previous_best != 0:
                 os.remove(os.path.join(args.save_path, '%s_%s_%.2f.pth' % (args.model, args.backbone, previous_best)))
