@@ -63,6 +63,9 @@ def main(args):
     wandb.define_metric("Pictures", step_metric="step_epoch")
     wandb.define_metric("loss", step_metric="step_train")
     wandb.define_metric("mIOU", step_metric="step_val")
+    step_train = 0
+    step_val = 0
+    step_epoch = 0
 
     wandb.config.update(args)
     if not os.path.exists(args.save_path):
