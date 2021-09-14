@@ -17,9 +17,6 @@ from tqdm import tqdm
 import wandb
 
 MODE = None
-step_train = 0
-step_val = 0
-step_epoch = 0
 wandb.init(project='ST++', entity='gkeppler')
 wandb.define_metric("step_train")
 wandb.define_metric("step_val")
@@ -27,6 +24,10 @@ wandb.define_metric("step_epoch")
 wandb.define_metric("Pictures", step_metric="step_epoch")
 wandb.define_metric("loss", step_metric="step_train")
 wandb.define_metric("mIOU", step_metric="step_val")
+global step_train 
+global step_val
+global step_epoch
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')
@@ -59,6 +60,10 @@ def parse_args():
 
 
 def main(args):
+    step_train = 0
+    step_val = 0
+    step_epoch = 0
+
     wandb.config.update(args)
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
