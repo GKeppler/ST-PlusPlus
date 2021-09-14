@@ -20,10 +20,8 @@ MODE = None
 wandb.init(project='ST++', entity='gkeppler')
 global step_train 
 global step_val
-global step_epoch
 step_train = 0
 step_val = 0
-step_epoch = 0
 
 
 
@@ -244,7 +242,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
             optimizer.param_groups[1]["lr"] = lr * 1.0 if args.model == 'deeplabv2' else lr * 10.0
 
             #wandb log with custom step
-            wandb.log({"loss": loss, "epoch": epoch})
+            wandb.log({"loss": loss,"step_train":step_train, "epoch": epoch})
             step_train += 1
             tbar.set_description('Loss: %.3f' % (total_loss / (i + 1)))
             
@@ -265,7 +263,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
                 #print(np.unique(np.squeeze(pred.cpu().numpy(), axis=0)))
                 mIOU = metric.evaluate()[-1]
-                wandb.log({"mIOU": mIOU})
+                wandb.log({"mIOU": mIOU,"step_val":step_val})
                 if i <= 10:
                     #wandb.log({"img": [wandb.Image(img, caption="img")]})
                     #wandb.log({"mask": [wandb.Image(pred.cpu().numpy(), caption="mask")]})
@@ -286,7 +284,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 tbar.set_description('mean mIOU: %.2f' % (mIOU * 100.0))
                 step_val += 1
 
-        wandb.log({"Pictures": wandb_iamges})
+        wandb.log({"Pictures": wandb_iamges,"step_epoch":epoch})
         mIOU *= 100.0
         if mIOU > previous_best:
             if previous_best != 0:
