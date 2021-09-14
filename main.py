@@ -242,10 +242,9 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 i = i+1
                 img = img.cuda()
                 pred = model(img)
-                #tensor  = pred.cpu().numpy()
-                torchvision.utils.save_image(pred,"test.png")
+                #tensor  = pred.cpu().numpy() 
                 pred = torch.argmax(pred, dim=1)
-
+                torchvision.utils.save_image(pred,"test.png")
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
                 mIOU = metric.evaluate()[-1]
                 if i < 10:
