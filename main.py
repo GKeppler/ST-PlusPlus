@@ -207,7 +207,6 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
     total_iters = len(trainloader) * args.epochs
     global step_train 
     global step_val
-    global step_epoch
 
     previous_best = 0.0
 
@@ -297,7 +296,6 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
         if MODE == 'train' and ((epoch + 1) in [args.epochs // 3, args.epochs * 2 // 3, args.epochs]):
             checkpoints.append(deepcopy(model))
-        step_epoch += 1
 
     if MODE == 'train':
         return best_model, checkpoints
