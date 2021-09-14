@@ -18,6 +18,12 @@ import wandb
 
 MODE = None
 wandb.init(project='ST++', entity='gkeppler')
+global step_train 
+global step_val
+global step_epoch
+step_train = 0
+step_val = 0
+step_epoch = 0
 
 
 
@@ -201,6 +207,9 @@ def init_basic_elems(args):
 def train(model, trainloader, valloader, criterion, optimizer, args):
     iters = 0
     total_iters = len(trainloader) * args.epochs
+    global step_train 
+    global step_val
+    global step_epoch
 
     previous_best = 0.0
 
@@ -360,12 +369,6 @@ def label(model, dataloader, args):
 
 if __name__ == '__main__':
     args = parse_args()
-    global step_train 
-    global step_val
-    global step_epoch
-    step_train = 0
-    step_val = 0
-    step_epoch = 0
 
     if args.epochs is None:
         args.epochs = {'pascal': 80, 'cityscapes': 240}[args.dataset]
