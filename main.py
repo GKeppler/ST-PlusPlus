@@ -51,6 +51,7 @@ def parse_args():
 
 def main(args):
     wandb.init(project='ST++', entity='gkeppler')
+    wandb.define_metric("custom_step")
     wandb.config.update(args)
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
@@ -244,7 +245,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
                 #print(np.unique(np.squeeze(pred.cpu().numpy(), axis=0)))
                 mIOU = metric.evaluate()[-1]
-                wandb.log({"mIOU": mIOU},commit=False)
+                wandb.log({"mIOU": mIOU})
                 if i <= 10:
                     #wandb.log({"img": [wandb.Image(img, caption="img")]})
                     #wandb.log({"mask": [wandb.Image(pred.cpu().numpy(), caption="mask")]})
@@ -263,7 +264,8 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                     })
                     wandb_iamges.append(wandb_iamge)
                 tbar.set_description('mean mIOU: %.2f' % (mIOU * 100.0))
-        wandb.log({"Pictures" : wandb_iamges}, step = epoch)
+        wandb.define_metric("Pictures", step_metric="custom_step")
+        wandb.log({"Pictures" : wandb_iamges, "custom_step" : epoch})
         mIOU *= 100.0
         if mIOU > previous_best:
             if previous_best != 0:
