@@ -74,7 +74,7 @@ def main(args):
 
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.labeled_id_path)
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
-    subset_indices = (0,1,2)
+    subset_indices = list(range(100))
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=False,
                              pin_memory=True, num_workers=16, drop_last=True,sampler=torch.utils.data.SubsetRandomSampler(subset_indices))
 
@@ -225,7 +225,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
             lr = args.lr * (1 - iters / total_iters) ** 0.9
             optimizer.param_groups[0]["lr"] = lr
             optimizer.param_groups[1]["lr"] = lr * 1.0 if args.model == 'deeplabv2' else lr * 10.0
-            wandb.log({"loss": loss.item(),"epoch": epoch})
+            wandb.log({"loss": loss, "epoch": epoch})
 
             tbar.set_description('Loss: %.3f' % (total_loss / (i + 1)))
 
