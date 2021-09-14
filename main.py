@@ -15,8 +15,6 @@ from torch.optim import SGD
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import wandb
-import cv2
-import torchvision
 
 MODE = None
 
@@ -253,11 +251,11 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                     class_lables.update({255:"black"})
                     wandb.log(wandb.Image(img, masks={
                         "predictions" : {
-                            "mask_data" : pred.cpu().numpy().squeeze(x, axis=0),
+                            "mask_data" : np.squeeze(pred.cpu().numpy(), axis=0),
                             "class_labels" : class_lables
                         },
                         "ground_truth" : {
-                            "mask_data" : pred.cpu().numpy().squeeze(x, axis=0),
+                            "mask_data" : np.squeeze(pred.cpu().numpy(), axis=0),
                             "class_labels" : class_lables
                         }
                     }))
