@@ -234,7 +234,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
         model.eval()
         tbar = tqdm(valloader)
         i = 0
-        
+        wandb_iamges = []
         with torch.no_grad():
             for img, mask, _ in tbar:
                 i = i+1
@@ -251,7 +251,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                     class_lables = dict((el,"someting") for el in list(range(22)))
                     class_lables.update({255:"boarder"})
                     class_lables.update({0:"nothing"})
-                    wandb.log({"Pictures" : wandb.Image(img, masks={
+                    wandb_iamge  = wandb.Image(img, masks={
                         "predictions" : {
                             "mask_data" : np.squeeze(pred.cpu().numpy(), axis=0),
                             "class_labels" : class_lables
@@ -260,9 +260,10 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                             "mask_data" : np.squeeze(pred.cpu().numpy(), axis=0),
                             "class_labels" : class_lables
                         }
-                    })})
+                    })
+                    wandb_iamges.append(wandb_iamge)
                 tbar.set_description('mean mIOU: %.2f' % (mIOU * 100.0))
-
+        wandb.log({"Pictures" : wandb_iamges})
         mIOU *= 100.0
         if mIOU > previous_best:
             if previous_best != 0:
