@@ -248,8 +248,9 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 if i <= 10:
                     #wandb.log({"img": [wandb.Image(img, caption="img")]})
                     #wandb.log({"mask": [wandb.Image(pred.cpu().numpy(), caption="mask")]})
-                    class_lables = dict((el,"test") for el in list(range(22)))
-                    class_lables.update({255:"black"})
+                    class_lables = dict((el,"someting") for el in list(range(22)))
+                    class_lables.update({255:"boarder"})
+                    class_lables.update({0:"nothing"})
                     wandb.log({"Pictures" : wandb.Image(img, masks={
                         "predictions" : {
                             "mask_data" : np.squeeze(pred.cpu().numpy(), axis=0),
