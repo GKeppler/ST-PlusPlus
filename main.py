@@ -24,12 +24,7 @@ wandb.define_metric("step_epoch")
 wandb.define_metric("Pictures", step_metric="step_epoch")
 wandb.define_metric("loss", step_metric="step_train")
 wandb.define_metric("mIOU", step_metric="step_val")
-global step_train 
-global step_val
-global step_epoch
-step_train = 0
-step_val = 0
-step_epoch = 0
+
 
 
 def parse_args():
@@ -63,6 +58,12 @@ def parse_args():
 
 
 def main(args):
+    global step_train 
+    global step_val
+    global step_epoch
+    step_train = 0
+    step_val = 0
+    step_epoch = 0
 
     wandb.config.update(args)
     if not os.path.exists(args.save_path):
