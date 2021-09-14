@@ -249,7 +249,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                     #wandb.log({"mask": [wandb.Image(pred.cpu().numpy(), caption="mask")]})
                     class_lables = dict((el,"test") for el in list(range(22)))
                     class_lables.update({255:"black"})
-                    wandb.log(wandb.Image(img, masks={
+                    wandb.log({"Pictures" : wandb.Image(img, masks={
                         "predictions" : {
                             "mask_data" : np.squeeze(pred.cpu().numpy(), axis=0),
                             "class_labels" : class_lables
@@ -258,7 +258,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                             "mask_data" : np.squeeze(pred.cpu().numpy(), axis=0),
                             "class_labels" : class_lables
                         }
-                    }))
+                    })})
                 tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
 
         mIOU *= 100.0
