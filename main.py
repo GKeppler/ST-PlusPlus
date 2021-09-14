@@ -242,14 +242,13 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 pred = model(img)
                 pred = torch.argmax(pred, dim=1)
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
-                print(np.unique(np.squeeze(pred.cpu().numpy(), axis=0)))
-                #print(pred.cpu().numpy().squeeze(x, axis=0), mask.numpy().squeeze(x, axis=0))
+                #print(np.unique(np.squeeze(pred.cpu().numpy(), axis=0)))
                 mIOU = metric.evaluate()[-1]
                 wandb.log({"mIOU": mIOU})
                 if i <= 10:
                     #wandb.log({"img": [wandb.Image(img, caption="img")]})
                     #wandb.log({"mask": [wandb.Image(pred.cpu().numpy(), caption="mask")]})
-                    class_lables = dict((el,"someting") for el in list(range(22)))
+                    class_lables = dict((el,"something") for el in list(range(21)))
                     class_lables.update({255:"boarder"})
                     class_lables.update({0:"nothing"})
                     wandb_iamge  = wandb.Image(img, masks={
@@ -264,7 +263,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                     })
                     wandb_iamges.append(wandb_iamge)
                 tbar.set_description('mean mIOU: %.2f' % (mIOU * 100.0))
-        wandb.log({"Pictures" : wandb_iamges})
+        wandb.log({"Pictures" : wandb_iamges,"epoch":epoch})
         mIOU *= 100.0
         if mIOU > previous_best:
             if previous_best != 0:
