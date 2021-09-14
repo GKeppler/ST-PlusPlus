@@ -244,7 +244,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
                 #print(np.unique(np.squeeze(pred.cpu().numpy(), axis=0)))
                 mIOU = metric.evaluate()[-1]
-                wandb.log({"mIOU": mIOU})
+                wandb.log({"mIOU": mIOU},commit=False)
                 if i <= 10:
                     #wandb.log({"img": [wandb.Image(img, caption="img")]})
                     #wandb.log({"mask": [wandb.Image(pred.cpu().numpy(), caption="mask")]})
