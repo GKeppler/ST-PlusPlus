@@ -263,7 +263,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                     })
                     wandb_iamges.append(wandb_iamge)
                 tbar.set_description('mean mIOU: %.2f' % (mIOU * 100.0))
-        wandb.log({"Pictures" : wandb_iamges,"epoch":epoch})
+        wandb.log({"Pictures" : wandb_iamges, step=epoch})
         mIOU *= 100.0
         if mIOU > previous_best:
             if previous_best != 0:
