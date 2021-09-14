@@ -16,6 +16,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import wandb
 import cv2
+import torchvision
 
 MODE = None
 
@@ -241,7 +242,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 i = i+1
                 img = img.cuda()
                 pred = model(img)
-                tensor  = pred.cpu().numpy() # make sure tensor is on cpu
+                tensor  = pred.cpu().numpy()
                 torchvision.utils.save_image(tensor,"test.png")
                 pred = torch.argmax(pred, dim=1)
 
