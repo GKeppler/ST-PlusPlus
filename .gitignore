@@ -1,0 +1,4 @@
+pretrained/*
+wandb/*
+.vscode/*
+__pycache__/*
