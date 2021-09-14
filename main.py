@@ -18,12 +18,6 @@ import wandb
 
 MODE = None
 wandb.init(project='ST++', entity='gkeppler')
-wandb.define_metric("step_train")
-wandb.define_metric("step_val")
-wandb.define_metric("step_epoch")
-wandb.define_metric("Pictures", step_metric="step_epoch")
-wandb.define_metric("loss", step_metric="step_train")
-wandb.define_metric("mIOU", step_metric="step_val")
 
 
 
@@ -64,6 +58,12 @@ def main(args):
     step_train = 0
     step_val = 0
     step_epoch = 0
+    wandb.define_metric("step_train")
+    wandb.define_metric("step_val")
+    wandb.define_metric("step_epoch")
+    wandb.define_metric("Pictures", step_metric="step_epoch")
+    wandb.define_metric("loss", step_metric="step_train")
+    wandb.define_metric("mIOU", step_metric="step_val")
 
     wandb.config.update(args)
     if not os.path.exists(args.save_path):
