@@ -74,7 +74,7 @@ def main(args):
 
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.labeled_id_path)
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
-    subset_indices = list(range(100))
+    subset_indices = list(range(10))
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=False,
                              pin_memory=True, num_workers=16, drop_last=True,sampler=torch.utils.data.SubsetRandomSampler(subset_indices))
 
@@ -242,7 +242,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 pred = model(img)
                 pred = torch.argmax(pred, dim=1)
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
-                print(np.squeeze(pred.cpu().numpy(), axis=0).shape)
+                print(np.unique(np.squeeze(pred.cpu().numpy(), axis=0)))
                 #print(pred.cpu().numpy().squeeze(x, axis=0), mask.numpy().squeeze(x, axis=0))
                 mIOU = metric.evaluate()[-1]
                 wandb.log({"mIOU": mIOU})
