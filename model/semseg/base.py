@@ -2,9 +2,14 @@ from model.backbone.resnet import resnet50, resnet101
 
 from torch import nn
 import torch.nn.functional as F
+import pytorch_lightning as pl
+from torch.nn import CrossEntropyLoss
+from torch.optim import SGD
+from utils import count_params, meanIOU, color_map
+import torch
+from statistics import mean
 
-
-class BaseNet(nn.Module):
+class BaseNet(pl.LightningModule):
     def __init__(self, backbone):
         super(BaseNet, self).__init__()
         backbone_zoo = {'resnet50': resnet50, 'resnet101': resnet101}
@@ -42,3 +47,32 @@ class BaseNet(nn.Module):
                 final_result += out
 
             return final_result
+
+    def training_step(self, batch, batch_idx):
+            pred, mask = batch
+            #opt = self.optimizers()
+            #opt.zero_grad()
+            #criterion = CrossEntropyLoss(ignore_index=255)
+            #loss = criterion(pred, batch[1]) #batch[1] = mask
+            loss = F.binary_cross_entropy_with_logits(pred, mask, ignore_index=255)
+            loss.requires_grad = True
+            return {'loss': loss}
+
+    def validation_step(self, batch, batch_idx):
+        pred, mask, path = batch
+        metric = meanIOU(num_classes=21) # change for dataset
+        metric.add_batch(torch.argmax(pred, dim=1).numpy(), mask.numpy())
+        val_loss = metric.evaluate()[-1]
+        #wandb.log({"mIOU": mIOU,"step_val":step_val})
+        return{"val_loss": val_loss}
+
+    def validation_epoch_end(self, outputs):
+
+        val_loss=mean([x['val_loss'] for x in outputs])
+
+        log = {'avg_val_loss': val_loss}
+        #"val_loss" saves checkpoints: lock for autocheckpoints
+        return{"log":log,"val_loss": val_loss}
+    
+    def configure_optimizers(self):
+            return SGD(self.parameters(), lr=0.001, momentum=0.9, weight_decay=1e-4)

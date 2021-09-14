@@ -2,3 +2,4 @@ pretrained/*
 wandb/*
 .vscode/*
 __pycache__/*
+lightning_logs/*

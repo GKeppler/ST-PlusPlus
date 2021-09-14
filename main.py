@@ -13,24 +13,27 @@ import torch
 from torch.nn import CrossEntropyLoss, DataParallel
 from torch.optim import SGD
 from torch.utils.data import DataLoader
+import pytorch_lightning as pl
 from tqdm import tqdm
 import wandb
 
 MODE = None
-wandb.init(project='ST++', entity='gkeppler')
+#wandb.init(project='ST++', entity='gkeppler')
 global step_train 
 global step_val
 step_train = 0
 step_val = 0
 
 
-
 def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')
 
+    #autoparse?
+    #parser = pl.Trainer.add_argparse_args(parser)
+
     # basic settings
     parser.add_argument('--data-root', type=str, required=True)
-    parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes'], default='pascal')
+    parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes','melanoma'], default='pascal')
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--lr', type=float, default=None)
     parser.add_argument('--epochs', type=int, default=None)
@@ -38,6 +41,8 @@ def parse_args():
     parser.add_argument('--backbone', type=str, choices=['resnet50', 'resnet101'], default='resnet50')
     parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2'],
                         default='deeplabv3plus')
+    parser.add_argument('--precision', type=int, default=32)
+
 
     # semi-supervised settings
     parser.add_argument('--labeled-id-path', type=str, required=True)
@@ -56,14 +61,14 @@ def parse_args():
 
 
 def main(args):
-    wandb.define_metric("step_train")
-    wandb.define_metric("step_val")
-    wandb.define_metric("step_epoch")
-    wandb.define_metric("Pictures", step_metric="step_epoch")
-    wandb.define_metric("loss", step_metric="step_train")
-    wandb.define_metric("mIOU", step_metric="step_val")
+    # wandb.define_metric("step_train")
+    # wandb.define_metric("step_val")
+    # wandb.define_metric("step_epoch")
+    # wandb.define_metric("Pictures", step_metric="step_epoch")
+    # wandb.define_metric("loss", step_metric="step_train")
+    # wandb.define_metric("mIOU", step_metric="step_val")
+    # wandb.config.update(args)
 
-    wandb.config.update(args)
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
     if not os.path.exists(args.pseudo_mask_path):
@@ -71,7 +76,7 @@ def main(args):
     if args.plus and args.reliable_id_path is None:
         exit('Please specify reliable-id-path in ST++.')
 
-    criterion = CrossEntropyLoss(ignore_index=255)
+    #criterion = CrossEntropyLoss(ignore_index=255)
 
     valset = SemiDataset(args.dataset, args.data_root, 'val', None)
     valloader = DataLoader(valset, batch_size=4 if args.dataset == 'cityscapes' else 1,
@@ -86,11 +91,33 @@ def main(args):
 
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.labeled_id_path)
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
-    subset_indices = list(range(10))
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                             pin_memory=True, num_workers=16, drop_last=True)#,sampler=torch.utils.data.SubsetRandomSampler(subset_indices))
+                             pin_memory=True, num_workers=4, drop_last=True)#,sampler=torch.utils.data.SubsetRandomSampler(list(range(10))))
 
-    model, optimizer = init_basic_elems(args)
+    #new pl stuff                                                                                                                                                       
+
+    #copied from basic elm
+    model_zoo = {'deeplabv3plus': DeepLabV3Plus, 'pspnet': PSPNet, 'deeplabv2': DeepLabV2}
+    model = model_zoo[args.model](args.backbone, 21 if args.dataset == 'pascal'else 4 if args.dataset == ' melanoma' else 19)
+
+    head_lr_multiple = 10.0
+    if args.model == 'deeplabv2':
+        assert args.backbone == 'resnet101'
+        model.load_state_dict(torch.load('pretrained/deeplabv2_resnet101_coco_pretrained.pth'))
+        head_lr_multiple = 1.0
+
+    # optimizer = SGD([{'params': model.backbone.parameters(), 'lr': args.lr},
+    #                  {'params': [param for name, param in model.named_parameters()
+    #                              if 'backbone' not in name],
+    #                   'lr': args.lr * head_lr_multiple}],
+    #                 lr=args.lr, momentum=0.9, weight_decay=1e-4)
+
+    #model = DataParallel(model).cuda()
+
+    Trainer = pl.Trainer(precision=args.precision,fast_dev_run=False, log_every_n_steps=2)
+    Trainer.fit(model, train_dataloaders=trainloader, val_dataloaders=valloader)
+
+    #model, optimizer = init_basic_elems(args)
     print('\nParams: %.1fM' % count_params(model))
 
     best_model, checkpoints = train(model, trainloader, valloader, criterion, optimizer, args)
@@ -181,25 +208,25 @@ def main(args):
     wandb.finish()
 
 
-def init_basic_elems(args):
-    model_zoo = {'deeplabv3plus': DeepLabV3Plus, 'pspnet': PSPNet, 'deeplabv2': DeepLabV2}
-    model = model_zoo[args.model](args.backbone, 21 if args.dataset == 'pascal' else 19)
+# def init_basic_elems(args):
+#     model_zoo = {'deeplabv3plus': DeepLabV3Plus, 'pspnet': PSPNet, 'deeplabv2': DeepLabV2}
+#     model = model_zoo[args.model](args.backbone, 21 if args.dataset == 'pascal'else 4 if args.dataset == ' melanoma' else 19)
 
-    head_lr_multiple = 10.0
-    if args.model == 'deeplabv2':
-        assert args.backbone == 'resnet101'
-        model.load_state_dict(torch.load('pretrained/deeplabv2_resnet101_coco_pretrained.pth'))
-        head_lr_multiple = 1.0
+#     head_lr_multiple = 10.0
+#     if args.model == 'deeplabv2':
+#         assert args.backbone == 'resnet101'
+#         model.load_state_dict(torch.load('pretrained/deeplabv2_resnet101_coco_pretrained.pth'))
+#         head_lr_multiple = 1.0
 
-    optimizer = SGD([{'params': model.backbone.parameters(), 'lr': args.lr},
-                     {'params': [param for name, param in model.named_parameters()
-                                 if 'backbone' not in name],
-                      'lr': args.lr * head_lr_multiple}],
-                    lr=args.lr, momentum=0.9, weight_decay=1e-4)
+#     optimizer = SGD([{'params': model.backbone.parameters(), 'lr': args.lr},
+#                      {'params': [param for name, param in model.named_parameters()
+#                                  if 'backbone' not in name],
+#                       'lr': args.lr * head_lr_multiple}],
+#                     lr=args.lr, momentum=0.9, weight_decay=1e-4)
 
-    model = DataParallel(model).cuda()
+#     model = DataParallel(model).cuda()
 
-    return model, optimizer
+#     return model, optimizer
 
 
 def train(model, trainloader, valloader, criterion, optimizer, args):
@@ -246,7 +273,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
             tbar.set_description('Loss: %.3f' % (total_loss / (i + 1)))
             
 
-        metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 19)
+        metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 19 if args.dataset == 'melanoma' else 19)
 
         model.eval()
         tbar = tqdm(valloader)
@@ -263,9 +290,9 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 #print(np.unique(np.squeeze(pred.cpu().numpy(), axis=0)))
                 mIOU = metric.evaluate()[-1]
                 wandb.log({"mIOU": mIOU,"step_val":step_val})
+
+                #just some logging for wandb
                 if i <= 10:
-                    #wandb.log({"img": [wandb.Image(img, caption="img")]})
-                    #wandb.log({"mask": [wandb.Image(pred.cpu().numpy(), caption="mask")]})
                     class_lables = dict((el,"something") for el in list(range(21)))
                     class_lables.update({255:"boarder"})
                     class_lables.update({0:"nothing"})
@@ -323,7 +350,7 @@ def select_reliable(models, dataloader, args):
 
             mIOU = []
             for i in range(len(preds) - 1):
-                metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 19)
+                metric = meanIOU(args.backbone, 21 if args.dataset == 'pascal'else 4 if args.dataset == ' melanoma' else 19)
                 metric.add_batch(preds[i], preds[-1])
                 mIOU.append(metric.evaluate()[-1])
 
@@ -343,7 +370,7 @@ def label(model, dataloader, args):
     model.eval()
     tbar = tqdm(dataloader)
 
-    metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 19)
+    metric = meanIOU(args.backbone, 21 if args.dataset == 'pascal'else 4 if args.dataset == ' melanoma' else 19)
     cmap = color_map(args.dataset)
 
     with torch.no_grad():
@@ -367,13 +394,13 @@ if __name__ == '__main__':
     args = parse_args()
 
     if args.epochs is None:
-        args.epochs = {'pascal': 80, 'cityscapes': 240}[args.dataset]
+        args.epochs = {'pascal': 80, 'cityscapes': 240, 'melanoma': 100}[args.dataset]
     if args.lr is None:
-        args.lr = {'pascal': 0.001, 'cityscapes': 0.004}[args.dataset] / 16 * args.batch_size
+        args.lr = {'pascal': 0.001, 'cityscapes': 0.004, 'melanoma': 0.001}[args.dataset] / 16 * args.batch_size
     if args.crop_size is None:
-        args.crop_size = {'pascal': 321, 'cityscapes': 721}[args.dataset]
+        args.crop_size = {'pascal': 321, 'cityscapes': 721, 'melanoma': 768}[args.dataset]
+
 
     print()
     print(args)
-
     main(args)

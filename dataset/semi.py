@@ -11,7 +11,7 @@ from torchvision import transforms
 class SemiDataset(Dataset):
     def __init__(self, name, root, mode, size, labeled_id_path=None, unlabeled_id_path=None, pseudo_mask_path=None):
         """
-        :param name: dataset name, pascal or cityscapes
+        :param name: dataset name, pascal, melanoma or cityscapes
         :param root: root path of the dataset.
         :param mode: train: supervised learning only with labeled images, no unlabeled images are leveraged.
                      label: pseudo labeling the remaining unlabeled images.
