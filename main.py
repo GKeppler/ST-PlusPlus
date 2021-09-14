@@ -17,7 +17,16 @@ from tqdm import tqdm
 import wandb
 
 MODE = None
-
+step_train = 0
+step_val = 0
+step_epoch = 0
+wandb.init(project='ST++', entity='gkeppler')
+wandb.define_metric("step_train")
+wandb.define_metric("step_val")
+wandb.define_metric("step_epoch")
+wandb.define_metric("Pictures", step_metric="step_epoch")
+wandb.define_metric("loss", step_metric="step_train")
+wandb.define_metric("mIOU", step_metric="step_val")
 
 def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')
@@ -50,9 +59,6 @@ def parse_args():
 
 
 def main(args):
-    wandb.init(project='ST++', entity='gkeppler')
-    wandb.define_metric("custom_step")
-    wandb.define_metric("Pictures", step_metric="custom_step")
     wandb.config.update(args)
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
@@ -227,14 +233,18 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
             lr = args.lr * (1 - iters / total_iters) ** 0.9
             optimizer.param_groups[0]["lr"] = lr
             optimizer.param_groups[1]["lr"] = lr * 1.0 if args.model == 'deeplabv2' else lr * 10.0
-            wandb.log({"loss": loss, "epoch": epoch})
 
+            #wandb log with custom step
+            wandb.log({"loss": loss,"step_train" = step_train "epoch": epoch})
+            step_train += 1
             tbar.set_description('Loss: %.3f' % (total_loss / (i + 1)))
+            
 
         metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 19)
 
         model.eval()
         tbar = tqdm(valloader)
+        #set i for sample images
         i = 0
         wandb_iamges = []
         with torch.no_grad():
@@ -246,7 +256,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
                 #print(np.unique(np.squeeze(pred.cpu().numpy(), axis=0)))
                 mIOU = metric.evaluate()[-1]
-                wandb.log({"mIOU": mIOU})
+                wandb.log({"mIOU": mIOU,"step_val"=step_val})
                 if i <= 10:
                     #wandb.log({"img": [wandb.Image(img, caption="img")]})
                     #wandb.log({"mask": [wandb.Image(pred.cpu().numpy(), caption="mask")]})
@@ -265,8 +275,9 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                     })
                     wandb_iamges.append(wandb_iamge)
                 tbar.set_description('mean mIOU: %.2f' % (mIOU * 100.0))
-        
-        wandb.log({"custom_step": epoch, "Pictures": wandb_iamges})
+                step_val += 1
+                      
+        wandb.log({"Pictures": wandb_iamges,"epoch_step": epoch})
         mIOU *= 100.0
         if mIOU > previous_best:
             if previous_best != 0:
@@ -279,6 +290,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
         if MODE == 'train' and ((epoch + 1) in [args.epochs // 3, args.epochs * 2 // 3, args.epochs]):
             checkpoints.append(deepcopy(model))
+        step_epoch += 1
 
     if MODE == 'train':
         return best_model, checkpoints
