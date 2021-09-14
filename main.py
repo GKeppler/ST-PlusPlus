@@ -18,12 +18,7 @@ import wandb
 
 MODE = None
 wandb.init(project='ST++', entity='gkeppler')
-global step_train 
-global step_val
-global step_epoch
-step_train = 0
-step_val = 0
-step_epoch = 0
+
 
 
 def parse_args():
@@ -63,9 +58,6 @@ def main(args):
     wandb.define_metric("Pictures", step_metric="step_epoch")
     wandb.define_metric("loss", step_metric="step_train")
     wandb.define_metric("mIOU", step_metric="step_val")
-    step_train = 0
-    step_val = 0
-    step_epoch = 0
 
     wandb.config.update(args)
     if not os.path.exists(args.save_path):
@@ -368,6 +360,9 @@ def label(model, dataloader, args):
 
 if __name__ == '__main__':
     args = parse_args()
+    global step_train 
+    global step_val
+    global step_epoch
     step_train = 0
     step_val = 0
     step_epoch = 0
