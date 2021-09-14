@@ -258,7 +258,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                             "class_labels" : class_lables
                         },
                         "ground_truth" : {
-                            "mask_data" : np.squeeze(pred.cpu().numpy(), axis=0),
+                            "mask_data" : np.squeeze(mask.numpy(), axis=0),
                             "class_labels" : class_lables
                         }
                     })
