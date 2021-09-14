@@ -368,6 +368,9 @@ def label(model, dataloader, args):
 
 if __name__ == '__main__':
     args = parse_args()
+    step_train = 0
+    step_val = 0
+    step_epoch = 0
 
     if args.epochs is None:
         args.epochs = {'pascal': 80, 'cityscapes': 240}[args.dataset]
