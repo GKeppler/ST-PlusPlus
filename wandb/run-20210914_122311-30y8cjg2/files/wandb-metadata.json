@@ -1,0 +1,24 @@
+{
+    "os": "Windows-10-10.0.19041-SP0",
+    "python": "3.6.13",
+    "heartbeatAt": "2021-09-14T10:23:19.497302",
+    "startedAt": "2021-09-14T10:23:11.436070",
+    "docker": null,
+    "gpu": "NVIDIA GeForce GTX 1650",
+    "gpu_count": 1,
+    "cpu_count": 12,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "c:/Users/Gustav/Documents/GitHub/Masterarbeit/ST-PlusPlus/main.py",
+    "codePath": "main.py",
+    "git": {
+        "remote": "https://github.com/GKeppler/ST-PlusPlus",
+        "commit": "ee8a699057ba18a9e1daa9bc1bd62b09555ecdaf"
+    },
+    "email": "gustavkeppler@gmail.com",
+    "root": "C:/Users/Gustav/Documents/GitHub/Masterarbeit/ST-PlusPlus",
+    "host": "LAPTOP-D3VMQB6S",
+    "username": "Gustav",
+    "executable": "C:\\Users\\Gustav\\anaconda3\\envs\\ssl2\\python.exe"
+}
