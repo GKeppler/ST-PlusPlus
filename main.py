@@ -77,8 +77,8 @@ def main(args):
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.labeled_id_path)
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
     subset_indices = list(range(10))
-    trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=False,
-                             pin_memory=True, num_workers=16, drop_last=True,sampler=torch.utils.data.SubsetRandomSampler(subset_indices))
+    trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
+                             pin_memory=True, num_workers=16, drop_last=True)#,sampler=torch.utils.data.SubsetRandomSampler(subset_indices))
 
     model, optimizer = init_basic_elems(args)
     print('\nParams: %.1fM' % count_params(model))
@@ -266,7 +266,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                     wandb_iamges.append(wandb_iamge)
                 tbar.set_description('mean mIOU: %.2f' % (mIOU * 100.0))
         
-        wandb.log({"Pictures" : wandb_iamges, "custom_step" : epoch})
+        wandb.log({"custom_step": epoch, "Pictures": wandb_iamges})
         mIOU *= 100.0
         if mIOU > previous_best:
             if previous_best != 0:
