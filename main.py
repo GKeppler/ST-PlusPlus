@@ -18,7 +18,12 @@ import wandb
 
 MODE = None
 wandb.init(project='ST++', entity='gkeppler')
-
+global step_train 
+global step_val
+global step_epoch
+step_train = 0
+step_val = 0
+step_epoch = 0
 
 
 def parse_args():
@@ -52,12 +57,6 @@ def parse_args():
 
 
 def main(args):
-    global step_train 
-    global step_val
-    global step_epoch
-    step_train = 0
-    step_val = 0
-    step_epoch = 0
     wandb.define_metric("step_train")
     wandb.define_metric("step_val")
     wandb.define_metric("step_epoch")
