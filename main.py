@@ -242,8 +242,8 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 i = i+1
                 img = img.cuda()
                 pred = model(img)
-                tensor  = pred.cpu().numpy()
-                torchvision.utils.save_image(tensor,"test.png")
+                #tensor  = pred.cpu().numpy()
+                torchvision.utils.save_image(pred,"test.png")
                 pred = torch.argmax(pred, dim=1)
 
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
