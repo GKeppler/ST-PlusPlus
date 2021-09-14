@@ -241,7 +241,8 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 i = i+1
                 img = img.cuda()
                 pred = model(img)
-                pred.save("test")
+                tensor  = pred.cpu().numpy() # make sure tensor is on cpu
+                cv2.imwrite(tensor, "image.png")
                 pred = torch.argmax(pred, dim=1)
 
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
