@@ -1,3 +1,4 @@
+from torch.utils.data.sampler import SubsetRandomSampler
 from dataset.semi import SemiDataset
 from model.semseg.deeplabv2 import DeepLabV2
 from model.semseg.deeplabv3plus import DeepLabV3Plus
@@ -14,11 +15,11 @@ from torch.nn import CrossEntropyLoss, DataParallel
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
+from pytorch_lightning.callbacks import ModelCheckpoint
 from tqdm import tqdm
 import wandb
 
 MODE = None
-#wandb.init(project='ST++', entity='gkeppler')
 global step_train 
 global step_val
 step_train = 0
@@ -61,13 +62,16 @@ def parse_args():
 
 
 def main(args):
-    # wandb.define_metric("step_train")
-    # wandb.define_metric("step_val")
-    # wandb.define_metric("step_epoch")
-    # wandb.define_metric("Pictures", step_metric="step_epoch")
-    # wandb.define_metric("loss", step_metric="step_train")
-    # wandb.define_metric("mIOU", step_metric="step_val")
-    # wandb.config.update(args)
+    use_wandb = False
+    if use_wandb == True:
+        wandb.init(project='ST++', entity='gkeppler')
+        wandb.define_metric("step_train")
+        wandb.define_metric("step_val")
+        wandb.define_metric("step_epoch")
+        wandb.define_metric("Pictures", step_metric="step_epoch")
+        wandb.define_metric("loss", step_metric="step_train")
+        wandb.define_metric("mIOU", step_metric="step_val")
+        wandb.config.update(args)
 
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
@@ -86,17 +90,11 @@ def main(args):
     print('\n================> Total stage 1/%i: '
           'Supervised training on labeled images (SupOnly)' % (6 if args.plus else 3))
 
-    global MODE
-    MODE = 'train'
-
-    trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.labeled_id_path)
+    trainset = SemiDataset(args.dataset, args.data_root, 'train', args.crop_size, args.labeled_id_path)
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                             pin_memory=True, num_workers=4, drop_last=True)#,sampler=torch.utils.data.SubsetRandomSampler(list(range(10))))
-
+                             pin_memory=True, num_workers=4, drop_last=True)
     #new pl stuff                                                                                                                                                       
-
-    #copied from basic elm
     model_zoo = {'deeplabv3plus': DeepLabV3Plus, 'pspnet': PSPNet, 'deeplabv2': DeepLabV2}
     model = model_zoo[args.model](args.backbone, 21 if args.dataset == 'pascal'else 4 if args.dataset == ' melanoma' else 19)
 
@@ -112,21 +110,57 @@ def main(args):
     #                   'lr': args.lr * head_lr_multiple}],
     #                 lr=args.lr, momentum=0.9, weight_decay=1e-4)
 
-    #model = DataParallel(model).cuda()
 
-    Trainer = pl.Trainer(precision=args.precision,fast_dev_run=False, log_every_n_steps=2)
-    Trainer.fit(model, train_dataloaders=trainloader, val_dataloaders=valloader)
+    # saves a file like: my/path/sample-epoch=02-val_loss=0.32.ckpt
+    checkpoint_callback = ModelCheckpoint(
+        dirpath="./model_checkpoints/",
+        filename='sample-epoch{epoch:02d}-val_loss{val/loss:.2f}',
+        auto_insert_metric_name=False
+    )
 
-    #model, optimizer = init_basic_elems(args)
+    Trainer = pl.Trainer(
+        precision=args.precision,
+        fast_dev_run=True,
+        log_every_n_steps=2,
+        callbacks=[checkpoint_callback]
+        )
+    #Trainer.fit(model, train_dataloaders=trainloader, val_dataloaders=valloader)
+
     print('\nParams: %.1fM' % count_params(model))
 
-    best_model, checkpoints = train(model, trainloader, valloader, criterion, optimizer, args)
+
+    # phase 2
+    
+    #set checkpoint
+    #Trainer = Trainer(resume_from_checkpoint="some/path/to/my_checkpoint.ckpt")
+
+    # automatically restores model, epoch, step, LR schedulers, apex, etc...
+    checkpoint_callback.best_model_path
+    dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=1, drop_last=False)
+
+    pseudo_labels = Trainer.predict(model, dataloader)
+
+    pseudo_labels = Image.fromarray(pseudo_labels.squeeze(0).numpy().astype(np.uint8), mode='P')
+    pseudo_labels.putpalette(color_map(args.dataset))
+
+    pseudo_labels.save('%s/%s' % (args.pseudo_mask_path, os.path.basename(id[0].split(' ')[1])))
+
+    #phase 3
+    trainset = SemiDataset(args.dataset, args.data_root, 'semi_train', args.crop_size,
+                            args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
+    trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
+                                pin_memory=True, num_workers=16, drop_last=True)
+    Trainer.fit(model, train_dataloaders=trainloader, val_dataloaders=valloader)
+
+
+    #best_model, checkpoints = train(model, trainloader, valloader, criterion, optimizer, args)
 
     """
         ST framework without selective re-training
     """
     if not args.plus:
-        # <============================= Pseudo label all unlabeled images =============================>
+        # <============================= Pseudolabel all unlabeled images =============================>
         print('\n\n\n================> Total stage 2/3: Pseudo labeling all unlabeled images')
 
         dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)

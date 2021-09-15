@@ -50,11 +50,7 @@ class BaseNet(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
             pred, mask = batch
-            #opt = self.optimizers()
-            #opt.zero_grad()
-            #criterion = CrossEntropyLoss(ignore_index=255)
-            #loss = criterion(pred, batch[1]) #batch[1] = mask
-            loss = F.binary_cross_entropy_with_logits(pred, mask, ignore_index=255)
+            loss = F.cross_entropy(pred, mask, ignore_index=255)
             loss.requires_grad = True
             return {'loss': loss}
 
@@ -63,16 +59,18 @@ class BaseNet(pl.LightningModule):
         metric = meanIOU(num_classes=21) # change for dataset
         metric.add_batch(torch.argmax(pred, dim=1).numpy(), mask.numpy())
         val_loss = metric.evaluate()[-1]
-        #wandb.log({"mIOU": mIOU,"step_val":step_val})
+        # wandb.log({"mIOU": mIOU,"step_val":step_val})
         return{"val_loss": val_loss}
 
     def validation_epoch_end(self, outputs):
-
-        val_loss=mean([x['val_loss'] for x in outputs])
-
+        val_loss = mean([x['val_loss'] for x in outputs])
         log = {'avg_val_loss': val_loss}
-        #"val_loss" saves checkpoints: lock for autocheckpoints
-        return{"log":log,"val_loss": val_loss}
-    
+        # "val_loss" saves checkpoints: lock for autocheckpoints
+        return{"log": log, "val_loss": val_loss}
+
+    def predict(self, batch, batch_idx: int, dataloader_idx: int = None):
+        img, mask, id = batch
+        return self(img)
+
     def configure_optimizers(self):
-            return SGD(self.parameters(), lr=0.001, momentum=0.9, weight_decay=1e-4)
+        return SGD(self.parameters(), lr=0.001, momentum=0.9, weight_decay=1e-4)
