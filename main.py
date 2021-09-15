@@ -137,7 +137,7 @@ def main(args):
     # automatically restores model, epoch, step, LR schedulers, apex, etc...
     checkpoint_callback.best_model_path
     dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=1, drop_last=False)
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     pseudo_labels = Trainer.predict(model, dataloader)
 
