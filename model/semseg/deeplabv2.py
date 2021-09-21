@@ -6,8 +6,8 @@ import torch.nn.functional as F
 
 
 class DeepLabV2(BaseNet):
-    def __init__(self, backbone, nclass):
-        super(DeepLabV2, self).__init__(backbone)
+    def __init__(self, backbone, nclass, **kwargs):
+        super(DeepLabV2, self).__init__(backbone,**kwargs)
 
         self.classifier = nn.ModuleList()
         for dilation in [6, 12, 18, 24]:

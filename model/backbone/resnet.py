@@ -99,8 +99,8 @@ class Bottleneck(pl.LightningModule):
 class ResNet(pl.LightningModule):
 
     def __init__(self, block, layers, zero_init_residual=False, groups=1,
-                 width_per_group=64, replace_stride_with_dilation=None, norm_layer=None):
-        super(ResNet, self).__init__()
+                 width_per_group=64, replace_stride_with_dilation=None, norm_layer=None, **kwargs):
+        super(ResNet, self).__init__(**kwargs)
 
         self.channels = [64 * block.expansion, 128 * block.expansion,
                          256 * block.expansion, 512 * block.expansion]

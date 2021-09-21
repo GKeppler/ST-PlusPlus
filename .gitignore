@@ -3,3 +3,7 @@ wandb/*
 .vscode/*
 __pycache__/*
 lightning_logs/*
+model/semseg/__pycache__/*
+outdir/*
+model_checkpoints/*
+datasets/__pycache__/*

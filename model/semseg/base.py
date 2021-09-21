@@ -4,13 +4,22 @@ from torch import nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 from torch.nn import CrossEntropyLoss
-from torch.optim import SGD
+from torch.optim import SGD, Adam
 from utils import count_params, meanIOU, color_map
 import torch
 from statistics import mean
 
+
 class BaseNet(pl.LightningModule):
-    def __init__(self, backbone):
+    @staticmethod
+    def add_model_specific_args(parent_parser):
+        parser = parent_parser.add_argument_group("BaseNet")
+        #initial learing rate
+        parser.add_argument("--lr", type=float, default=0.001)
+        return parent_parser
+
+    def __init__(self, backbone,*args, **kwargs):
+        lr = kwargs.get('lr')
         super(BaseNet, self).__init__()
         backbone_zoo = {'resnet50': resnet50, 'resnet101': resnet101}
         self.backbone = backbone_zoo[backbone](pretrained=True)
@@ -57,7 +66,7 @@ class BaseNet(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         pred, mask, path = batch
         metric = meanIOU(num_classes=21) # change for dataset
-        metric.add_batch(torch.argmax(pred, dim=1).numpy(), mask.numpy())
+        metric.add_batch(torch.argmax(pred, dim=1).cpu().numpy(), mask.cpu().numpy())
         val_loss = metric.evaluate()[-1]
         # wandb.log({"mIOU": mIOU,"step_val":step_val})
         return{"val_loss": val_loss}
@@ -65,12 +74,25 @@ class BaseNet(pl.LightningModule):
     def validation_epoch_end(self, outputs):
         val_loss = mean([x['val_loss'] for x in outputs])
         log = {'avg_val_loss': val_loss}
-        # "val_loss" saves checkpoints: lock for autocheckpoints
+        # "val_loss" saves checkpoints: look for autocheckpoints
         return{"log": log, "val_loss": val_loss}
 
-    def predict(self, batch, batch_idx: int, dataloader_idx: int = None):
+    def predict_step(self, batch, batch_idx: int, dataloader_idx: int = None):
         img, mask, id = batch
-        return self(img)
+        output = self(img)
+        #batch_size = batch[0].size(0)
+        prediction_file = getattr(self, "prediction_file", "predictions.pt")
+        #lazy_ids = torch.arange(batch_idx * batch_size, batch_idx * batch_size + batch_size)
+        #self.write_prediction("idxs", lazy_ids, prediction_file)
+        self.write_prediction("preds", output, prediction_file)
+        return output
 
     def configure_optimizers(self):
-        return SGD(self.parameters(), lr=0.001, momentum=0.9, weight_decay=1e-4)
+        optimizer = SGD(
+            self.parameters(),
+            lr=0.001,#self.lr,
+            #momentum=0.9,
+            weight_decay=1e-4
+            )
+        #scheduler = torch.optim.ReduceLROnPlateau(optimizer, mode='min')
+        return [optimizer]#, [scheduler] 

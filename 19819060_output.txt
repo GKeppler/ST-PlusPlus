@@ -1,0 +1,224 @@
+
+Namespace(backbone='resnet50', batch_size=16, crop_size=321, data_root='/lsdf/kit/iai/projects/iai-aida/Daten_Keppler/Pascal', dataset='pascal', epochs=80, labeled_id_path='dataset/splits/pascal/1_8/split_0/labeled.txt', lr=0.001, model='deeplabv3plus', plus=True, pseudo_mask_path='outdir/pseudo_masks/pascal/1_8/split_0', reliable_id_path='outdir/reliable_ids/~', save_path='outdir/models/pascal/1_8/split_0', unlabeled_id_path='dataset/splits/pascal/1_8/split_0/unlabeled.txt')
+
+
+================> Total stage 1/6: Supervised training on labeled images (SupOnly)
+
+Params: 40.4M
+
+==> Epoch 0, learning rate = 0.0010					 previous best = 0.00
+
+==> Epoch 1, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 2, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 3, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 4, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 5, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 6, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 7, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 8, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 9, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 10, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 11, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 12, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 13, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 14, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 15, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 16, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 17, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 18, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 19, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 20, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 21, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 22, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 23, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 24, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 25, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 26, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 27, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 28, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 29, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 30, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 31, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 32, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 33, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 34, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 35, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 36, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 37, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 38, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 39, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 40, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 41, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 42, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 43, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 44, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 45, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 46, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 47, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 48, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 49, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 50, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 51, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 52, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 53, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 54, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 55, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 56, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 57, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 58, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 59, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 60, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 61, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 62, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 63, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 64, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 65, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 66, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 67, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 68, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 69, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 70, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 71, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 72, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 73, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 74, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 75, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 76, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 77, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 78, learning rate = 0.0010					 previous best = 0.21
+
+==> Epoch 79, learning rate = 0.0010					 previous best = 0.21
+
+
+
+================> Total stage 2/6: Select reliable images for the 1st stage re-training
+
+
+
+================> Total stage 3/6: Pseudo labeling reliable images
+
+
+
+================> Total stage 4/6: The 1st stage re-training on labeled and reliable unlabeled images
+
+==> Epoch 0, learning rate = 0.0010					 previous best = 0.00
+
+==> Epoch 1, learning rate = 0.0010					 previous best = 39.90
+
+==> Epoch 2, learning rate = 0.0010					 previous best = 50.19
+
+==> Epoch 3, learning rate = 0.0010					 previous best = 53.28
+
+==> Epoch 4, learning rate = 0.0010					 previous best = 54.90
+
+==> Epoch 5, learning rate = 0.0009					 previous best = 54.90
+
+==> Epoch 6, learning rate = 0.0009					 previous best = 56.08
+
+==> Epoch 7, learning rate = 0.0009					 previous best = 56.10
+
+==> Epoch 8, learning rate = 0.0009					 previous best = 57.74
+
+==> Epoch 9, learning rate = 0.0009					 previous best = 57.74
+
+==> Epoch 10, learning rate = 0.0009					 previous best = 57.74
+
+==> Epoch 11, learning rate = 0.0009					 previous best = 57.74
+
+==> Epoch 12, learning rate = 0.0009					 previous best = 57.74
+
+==> Epoch 13, learning rate = 0.0009					 previous best = 57.74
+
+==> Epoch 14, learning rate = 0.0008					 previous best = 57.74
+
+============================= JOB FEEDBACK =============================
+
+NodeName=uc2n513
+Job ID: 19819060
+Cluster: uc2
+User/Group: uwdus/stud
+State: TIMEOUT (exit code 0)
+Nodes: 1
+Cores per node: 40
+CPU Utilized: 04:12:58
+CPU Efficiency: 2.63% of 6-16:13:20 core-walltime
+Job Wall-clock time: 04:00:20
+Memory Utilized: 48.51 GB
+Memory Efficiency: 0.00% of 0.00 MB

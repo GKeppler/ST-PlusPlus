@@ -3,6 +3,7 @@ from dataset.semi import SemiDataset
 from model.semseg.deeplabv2 import DeepLabV2
 from model.semseg.deeplabv3plus import DeepLabV3Plus
 from model.semseg.pspnet import PSPNet
+from model.semseg.base import BaseNet
 from utils import count_params, meanIOU, color_map
 
 import argparse
@@ -15,9 +16,11 @@ from torch.nn import CrossEntropyLoss, DataParallel
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, base
 from tqdm import tqdm
 import wandb
+from pytorch_lightning.utilities.cli import LightningCLI
+
 
 MODE = None
 global step_train 
@@ -29,20 +32,16 @@ step_val = 0
 def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')
 
-    #autoparse?
-    #parser = pl.Trainer.add_argparse_args(parser)
-
     # basic settings
     parser.add_argument('--data-root', type=str, required=True)
     parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes','melanoma'], default='pascal')
     parser.add_argument('--batch-size', type=int, default=16)
-    parser.add_argument('--lr', type=float, default=None)
     parser.add_argument('--epochs', type=int, default=None)
     parser.add_argument('--crop-size', type=int, default=None)
     parser.add_argument('--backbone', type=str, choices=['resnet50', 'resnet101'], default='resnet50')
     parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2'],
                         default='deeplabv3plus')
-    parser.add_argument('--precision', type=int, default=32)
+    #parser.add_argument('--lr', type=float, default=0.001)
 
 
     # semi-supervised settings
@@ -56,6 +55,16 @@ def parse_args():
     parser.add_argument('--reliable-id-path', type=str)
     parser.add_argument('--plus', dest='plus', default=False, action='store_true',
                         help='whether to use ST++')
+
+    #autoparse? bzw use ******LightningCLI*********
+
+    # add model specific args
+    parser = BaseNet.add_model_specific_args(parser)
+
+
+    # add all the available trainer options to argparse
+    # ie: now --gpus --num_nodes ... --fast_dev_run all work in the cli
+    parser = pl.Trainer.add_argparse_args(parser)
 
     args = parser.parse_args()
     return args
@@ -80,8 +89,6 @@ def main(args):
     if args.plus and args.reliable_id_path is None:
         exit('Please specify reliable-id-path in ST++.')
 
-    #criterion = CrossEntropyLoss(ignore_index=255)
-
     valset = SemiDataset(args.dataset, args.data_root, 'val', None)
     valloader = DataLoader(valset, batch_size=4 if args.dataset == 'cityscapes' else 1,
                            shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
@@ -94,9 +101,14 @@ def main(args):
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
                              pin_memory=True, num_workers=4, drop_last=True)
-    #new pl stuff                                                                                                                                                       
+
+
+    #new pl stuff
+    dict_args = vars(args)
+    dict2 = dict_args.copy()
+    del dict2['backbone']                                                                                                                                                       
     model_zoo = {'deeplabv3plus': DeepLabV3Plus, 'pspnet': PSPNet, 'deeplabv2': DeepLabV2}
-    model = model_zoo[args.model](args.backbone, 21 if args.dataset == 'pascal'else 4 if args.dataset == ' melanoma' else 19)
+    model = model_zoo[args.model](backbone=args.backbone, nclass=21 if args.dataset == 'pascal'else 4 if args.dataset == ' melanoma' else 19,**dict2)
 
     head_lr_multiple = 10.0
     if args.model == 'deeplabv2':
@@ -104,47 +116,57 @@ def main(args):
         model.load_state_dict(torch.load('pretrained/deeplabv2_resnet101_coco_pretrained.pth'))
         head_lr_multiple = 1.0
 
-    # optimizer = SGD([{'params': model.backbone.parameters(), 'lr': args.lr},
-    #                  {'params': [param for name, param in model.named_parameters()
-    #                              if 'backbone' not in name],
-    #                   'lr': args.lr * head_lr_multiple}],
-    #                 lr=args.lr, momentum=0.9, weight_decay=1e-4)
-
+    #configure  
+    #cli = LightningCLI(model, trainloader)
 
     # saves a file like: my/path/sample-epoch=02-val_loss=0.32.ckpt
     checkpoint_callback = ModelCheckpoint(
         dirpath="./model_checkpoints/",
-        filename='sample-epoch{epoch:02d}-val_loss{val/loss:.2f}',
+        filename='sample-epoch{epoch:02d}-val_loss{val_loss:.2f}',
         auto_insert_metric_name=False
-    )
-
-    Trainer = pl.Trainer(
-        precision=args.precision,
-        fast_dev_run=True,
+u    )
+    
+    Trainer = pl.Trainer.from_argparse_args(args,
+        fast_dev_run=False,
         log_every_n_steps=2,
-        callbacks=[checkpoint_callback]
-        )
-    #Trainer.fit(model, train_dataloaders=trainloader, val_dataloaders=valloader)
+        callbacks=[checkpoint_callback],
+        gpus=[0])
+
+    Trainer.fit(model, train_dataloaders=trainloader, val_dataloaders=valloader)
 
     print('\nParams: %.1fM' % count_params(model))
 
-
     # phase 2
-    
-    #set checkpoint
-    #Trainer = Trainer(resume_from_checkpoint="some/path/to/my_checkpoint.ckpt")
+
 
     # automatically restores model, epoch, step, LR schedulers, apex, etc...
     checkpoint_callback.best_model_path
     dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
-    pseudo_labels = Trainer.predict(model, dataloader)
+    # predict runs out of memory with one gpu and doenst return predicitions on 2 gpus. Try test_step: Trainer.predict() with write_prediction
 
-    pseudo_labels = Image.fromarray(pseudo_labels.squeeze(0).numpy().astype(np.uint8), mode='P')
-    pseudo_labels.putpalette(color_map(args.dataset))
 
-    pseudo_labels.save('%s/%s' % (args.pseudo_mask_path, os.path.basename(id[0].split(' ')[1])))
+    preds = Trainer.predict(model, dataloader,ckpt_path=checkpoint_callback.best_model_path)
+    metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19)
+    print("---------------predicted-------------")
+    print(preds)
+    tbar = tqdm(dataloader)
+    i = 0
+    for img, mask, id in tbar:
+        print(preds[i].cpu().numpy().size)
+        pred = torch.argmax(preds[0][i], dim=0).cpu()
+        print(pred.numpy().size)
+        print(mask.numpy().size)
+
+        #metric.add_batch(pred.numpy(), mask.numpy())
+        #mIOU = metric.evaluate()[-1]
+        pred = Image.fromarray(pred.squeeze(0).numpy().astype(np.uint8), mode='P')
+        pred.putpalette(color_map(args.dataset))
+        pred.save('%s/%s' % (args.pseudo_mask_path, os.path.basename(id[0].split(' ')[1])))
+        #tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
+        i = i+1
+
 
     #phase 3
     trainset = SemiDataset(args.dataset, args.data_root, 'semi_train', args.crop_size,
@@ -241,26 +263,6 @@ def main(args):
 
     wandb.finish()
 
-
-# def init_basic_elems(args):
-#     model_zoo = {'deeplabv3plus': DeepLabV3Plus, 'pspnet': PSPNet, 'deeplabv2': DeepLabV2}
-#     model = model_zoo[args.model](args.backbone, 21 if args.dataset == 'pascal'else 4 if args.dataset == ' melanoma' else 19)
-
-#     head_lr_multiple = 10.0
-#     if args.model == 'deeplabv2':
-#         assert args.backbone == 'resnet101'
-#         model.load_state_dict(torch.load('pretrained/deeplabv2_resnet101_coco_pretrained.pth'))
-#         head_lr_multiple = 1.0
-
-#     optimizer = SGD([{'params': model.backbone.parameters(), 'lr': args.lr},
-#                      {'params': [param for name, param in model.named_parameters()
-#                                  if 'backbone' not in name],
-#                       'lr': args.lr * head_lr_multiple}],
-#                     lr=args.lr, momentum=0.9, weight_decay=1e-4)
-
-#     model = DataParallel(model).cuda()
-
-#     return model, optimizer
 
 
 def train(model, trainloader, valloader, criterion, optimizer, args):
@@ -400,11 +402,14 @@ def select_reliable(models, dataloader, args):
             f.write(elem[0] + '\n')
 
 
+
+
 def label(model, dataloader, args):
+    model.cuda()
     model.eval()
     tbar = tqdm(dataloader)
 
-    metric = meanIOU(args.backbone, 21 if args.dataset == 'pascal'else 4 if args.dataset == ' melanoma' else 19)
+    metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 19)
     cmap = color_map(args.dataset)
 
     with torch.no_grad():
@@ -423,10 +428,11 @@ def label(model, dataloader, args):
 
             tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
 
-
 if __name__ == '__main__':
     args = parse_args()
 
+    if args.lr is None:
+        args.lr = 0.001
     if args.epochs is None:
         args.epochs = {'pascal': 80, 'cityscapes': 240, 'melanoma': 100}[args.dataset]
     if args.lr is None:
