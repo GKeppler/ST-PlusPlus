@@ -1,4 +1,4 @@
-from model.backbone.resnet import resnet50, resnet101
+from model.backbone.resnet import resnet50, resnet101, resnet18
 
 from torch import nn
 import torch.nn.functional as F
@@ -21,7 +21,7 @@ class BaseNet(pl.LightningModule):
     def __init__(self, backbone,*args, **kwargs):
         lr = kwargs.get('lr')
         super(BaseNet, self).__init__()
-        backbone_zoo = {'resnet50': resnet50, 'resnet101': resnet101}
+        backbone_zoo = {'resnet18': resnet18, 'resnet50': resnet50, 'resnet101': resnet101}
         self.backbone = backbone_zoo[backbone](pretrained=True)
 
     def base_forward(self, x):
@@ -58,10 +58,11 @@ class BaseNet(pl.LightningModule):
             return final_result
 
     def training_step(self, batch, batch_idx):
-            pred, mask = batch
-            loss = F.cross_entropy(pred, mask, ignore_index=255)
-            loss.requires_grad = True
-            return {'loss': loss}
+        img, mask = batch
+        pred = self(img)
+        loss = F.cross_entropy(pred, mask, ignore_index=255)
+        #loss.requires_grad = True
+        return {'loss': loss}
 
     def validation_step(self, batch, batch_idx):
         pred, mask, path = batch
@@ -79,13 +80,13 @@ class BaseNet(pl.LightningModule):
 
     def predict_step(self, batch, batch_idx: int, dataloader_idx: int = None):
         img, mask, id = batch
-        output = self(img)
+        pred = self(img)
         #batch_size = batch[0].size(0)
-        prediction_file = getattr(self, "prediction_file", "predictions.pt")
+        #prediction_file = getattr(self, "prediction_file", "predictions.pt")
         #lazy_ids = torch.arange(batch_idx * batch_size, batch_idx * batch_size + batch_size)
         #self.write_prediction("idxs", lazy_ids, prediction_file)
-        self.write_prediction("preds", output, prediction_file)
-        return output
+        # self.write_prediction("preds", output, prediction_file)
+        return [pred, mask, id]
 
     def configure_optimizers(self):
         optimizer = SGD(

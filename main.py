@@ -1,4 +1,4 @@
-from torch.utils.data.sampler import SubsetRandomSampler
+#from torch.utils.data.sampler import SubsetRandomSampler
 from dataset.semi import SemiDataset
 from model.semseg.deeplabv2 import DeepLabV2
 from model.semseg.deeplabv3plus import DeepLabV3Plus
@@ -38,7 +38,7 @@ def parse_args():
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--epochs', type=int, default=None)
     parser.add_argument('--crop-size', type=int, default=None)
-    parser.add_argument('--backbone', type=str, choices=['resnet50', 'resnet101'], default='resnet50')
+    parser.add_argument('--backbone', type=str, choices=['resnet18', 'resnet50', 'resnet101'], default='resnet50')
     parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2'],
                         default='deeplabv3plus')
     #parser.add_argument('--lr', type=float, default=0.001)
@@ -124,10 +124,10 @@ def main(args):
         dirpath="./model_checkpoints/",
         filename='sample-epoch{epoch:02d}-val_loss{val_loss:.2f}',
         auto_insert_metric_name=False
-u    )
+     )
     
     Trainer = pl.Trainer.from_argparse_args(args,
-        fast_dev_run=False,
+        fast_dev_run=True,
         log_every_n_steps=2,
         callbacks=[checkpoint_callback],
         gpus=[0])
@@ -136,47 +136,59 @@ u    )
 
     print('\nParams: %.1fM' % count_params(model))
 
-    # phase 2
+    """
+        ST framework without selective re-training
+    """
+    if not args.plus:
+        # <============================= Pseudolabel all unlabeled images =============================>
+        print('\n\n\n================> Total stage 2/3: Pseudo labeling all unlabeled images')
 
 
-    # automatically restores model, epoch, step, LR schedulers, apex, etc...
-    checkpoint_callback.best_model_path
-    dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+        # automatically restores model, epoch, step, LR schedulers, apex, etc...
+        checkpoint_callback.best_model_path
+        dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
-    # predict runs out of memory with one gpu and doenst return predicitions on 2 gpus. Try test_step: Trainer.predict() with write_prediction
+        # predict can run out of memory with one gpu and doenst return predicitions on 2 gpus. Try test_step: Trainer.predict() with write_prediction
+        pred_list = []
+        pred_list = Trainer.predict(model, dataloader, ckpt_path=checkpoint_callback.best_model_path)
+
+        metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19)
+        tbar = tqdm(pred_list)
+        i = 0
+        for pred, mask, id in tbar:
+            pred = torch.argmax(pred, dim=1).cpu()
+            #print(pred.numpy().size)
+            #print(mask.cpu().numpy().size)
+            metric.add_batch(pred.numpy(), mask.cpu().numpy())
+            mIOU = metric.evaluate()[-1]
+            pred = Image.fromarray(pred.squeeze(0).numpy().astype(np.uint8), mode='P')
+            pred.putpalette(color_map(args.dataset))
+            pred.save('%s/%s' % (args.pseudo_mask_path, os.path.basename(id[0].split(' ')[1])))
+            tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
+
+    
+        # <======================== Re-training on labeled and unlabeled images ========================>
+        print('\n\n\n================> Total stage 3/3: Re-training on labeled and unlabeled images')
+
+        Trainer = pl.Trainer.from_argparse_args(args,
+            fast_dev_run=True,
+            log_every_n_steps=2,
+            callbacks=[checkpoint_callback],
+            gpus=[0])
+
+        trainset = SemiDataset(args.dataset, args.data_root, 'semi_train', args.crop_size,
+                                args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
+        trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
+                                    pin_memory=True, num_workers=4, drop_last=True)
 
 
-    preds = Trainer.predict(model, dataloader,ckpt_path=checkpoint_callback.best_model_path)
-    metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19)
-    print("---------------predicted-------------")
-    print(preds)
-    tbar = tqdm(dataloader)
-    i = 0
-    for img, mask, id in tbar:
-        print(preds[i].cpu().numpy().size)
-        pred = torch.argmax(preds[0][i], dim=0).cpu()
-        print(pred.numpy().size)
-        print(mask.numpy().size)
+        Trainer.fit(model, train_dataloaders=trainloader, val_dataloaders=valloader)
 
-        #metric.add_batch(pred.numpy(), mask.numpy())
-        #mIOU = metric.evaluate()[-1]
-        pred = Image.fromarray(pred.squeeze(0).numpy().astype(np.uint8), mode='P')
-        pred.putpalette(color_map(args.dataset))
-        pred.save('%s/%s' % (args.pseudo_mask_path, os.path.basename(id[0].split(' ')[1])))
-        #tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
-        i = i+1
+        return
 
 
-    #phase 3
-    trainset = SemiDataset(args.dataset, args.data_root, 'semi_train', args.crop_size,
-                            args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
-    trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                                pin_memory=True, num_workers=16, drop_last=True)
-    Trainer.fit(model, train_dataloaders=trainloader, val_dataloaders=valloader)
-
-
-    #best_model, checkpoints = train(model, trainloader, valloader, criterion, optimizer, args)
+        #best_model, checkpoints = train(model, trainloader, valloader, criterion, optimizer, args)
 
     """
         ST framework without selective re-training
@@ -438,7 +450,7 @@ if __name__ == '__main__':
     if args.lr is None:
         args.lr = {'pascal': 0.001, 'cityscapes': 0.004, 'melanoma': 0.001}[args.dataset] / 16 * args.batch_size
     if args.crop_size is None:
-        args.crop_size = {'pascal': 321, 'cityscapes': 721, 'melanoma': 768}[args.dataset]
+        args.crop_size = {'pascal': 321, 'cityscapes': 721, 'melanoma': 224}[args.dataset]
 
 
     print()

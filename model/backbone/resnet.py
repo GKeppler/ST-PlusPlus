@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
+import torchvision.models as models
 
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']

@@ -66,7 +66,7 @@ class SemiDataset(Dataset):
             mask = Image.open(os.path.join(self.pseudo_mask_path, fname))
 
         # basic augmentation on all training images
-        base_size = 400 if self.name == 'pascal' else 400 if self.name == 'melanoma' else 2048
+        base_size = 256#400 if self.name == 'pascal' else 256 if self.name == 'melanoma' else 2048
         img, mask = resize(img, mask, base_size, (0.5, 2.0))
         img, mask = crop(img, mask, self.size)
         img, mask = hflip(img, mask, p=0.5)
