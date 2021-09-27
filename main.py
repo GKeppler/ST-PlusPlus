@@ -4,6 +4,7 @@ from model.semseg.deeplabv2 import DeepLabV2
 from model.semseg.deeplabv3plus import DeepLabV3Plus
 from model.semseg.pspnet import PSPNet
 from model.semseg.base import BaseNet
+from model.semseg.unet import Unet
 from utils import count_params, meanIOU, color_map
 
 import argparse
@@ -39,7 +40,7 @@ def parse_args():
     parser.add_argument('--epochs', type=int, default=None)
     parser.add_argument('--crop-size', type=int, default=None)
     parser.add_argument('--backbone', type=str, choices=['resnet18', 'resnet50', 'resnet101'], default='resnet50')
-    parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2'],
+    parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2', 'unet'],
                         default='deeplabv3plus')
     #parser.add_argument('--lr', type=float, default=0.001)
 
@@ -100,15 +101,15 @@ def main(args):
     trainset = SemiDataset(args.dataset, args.data_root, 'train', args.crop_size, args.labeled_id_path)
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                             pin_memory=True, num_workers=4, drop_last=True)
+                             pin_memory=True, num_workers=1, drop_last=True)
 
 
     #new pl stuff
     dict_args = vars(args)
     dict2 = dict_args.copy()
     del dict2['backbone']                                                                                                                                                       
-    model_zoo = {'deeplabv3plus': DeepLabV3Plus, 'pspnet': PSPNet, 'deeplabv2': DeepLabV2}
-    model = model_zoo[args.model](backbone=args.backbone, nclass=21 if args.dataset == 'pascal'else 4 if args.dataset == ' melanoma' else 19,**dict2)
+    model_zoo = {'deeplabv3plus': DeepLabV3Plus, 'pspnet': PSPNet, 'deeplabv2': DeepLabV2, 'unet': Unet}
+    model = model_zoo[args.model](backbone=args.backbone, nclass=21 if args.dataset == 'pascal' else 4 if args.dataset == 'melanoma' else 19, **dict2)
 
     head_lr_multiple = 10.0
     if args.model == 'deeplabv2':
@@ -450,7 +451,7 @@ if __name__ == '__main__':
     if args.lr is None:
         args.lr = {'pascal': 0.001, 'cityscapes': 0.004, 'melanoma': 0.001}[args.dataset] / 16 * args.batch_size
     if args.crop_size is None:
-        args.crop_size = {'pascal': 321, 'cityscapes': 721, 'melanoma': 224}[args.dataset]
+        args.crop_size = {'pascal': 224, 'cityscapes': 721, 'melanoma': 224}[args.dataset] #'pascal': 321,
 
 
     print()
