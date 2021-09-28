@@ -2,3 +2,8 @@ pretrained/*
 wandb/*
 .vscode/*
 __pycache__/*
+model_checkpoints/*
+model/backbone/__pycache__/*
+model/semseg/__pycache__/*
+outdir/*
+dataset/__pycache__/*
