@@ -137,12 +137,13 @@ def main(args):
 
     Trainer.fit(model, train_dataloaders=trainloader, val_dataloaders=valloader)
 
-    print('\nParams: %.1fM' % count_params(model))
 
-    """
-        ST framework without selective re-training
-    """
     if not args.plus:
+        print('\nParams: %.1fM' % count_params(model))
+
+        """
+            ST framework without selective re-training
+        """
         # <============================= Pseudolabel all unlabeled images =============================>
         print('\n\n\n================> Total stage 2/3: Pseudo labeling all unlabeled images')
 
@@ -175,7 +176,8 @@ def main(args):
         else:
             #laod latest checkpoint
             model_path = os.path.join("./", args.save_path)
-            model.load_from_checkpoint(os.path.join(model_path, os.listdir(model_path)[0]),backbone=args.backbone, nclass=num_classes, **dict2)
+            print("Loading model:"+ os.listdir(model_path)[-1])
+            model.load_from_checkpoint(os.path.join(model_path, os.listdir(model_path)[-1]),backbone=args.backbone, nclass=num_classes, **dict2)
             label(model, dataloader, args)
     
         # <======================== Re-training on labeled and unlabeled images ========================>
