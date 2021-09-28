@@ -25,6 +25,8 @@ class Unet(BaseNet):
         self.n_channels = 3 #hparams.n_channels
         self.n_classes = nclass
         self.bilinear = True
+        low_level_channels = self.backbone.channels[0]
+        high_level_channels = self.backbone.channels[-1]
 
         def double_conv(in_channels, out_channels):
             return nn.Sequential(
@@ -77,6 +79,9 @@ class Unet(BaseNet):
         self.out = nn.Conv2d(64, self.n_classes, kernel_size=1)
 
     def base_forward(self, x):
+        
+        #replace down with resnet backbone
+
         x1 = self.inc(x)
         x2 = self.down1(x1)
         x3 = self.down2(x2)

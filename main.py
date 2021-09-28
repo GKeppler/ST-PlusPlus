@@ -35,7 +35,7 @@ def parse_args():
 
     # basic settings
     parser.add_argument('--data-root', type=str, required=True)
-    parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes','melanoma'], default='pascal')
+    parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes', 'melanoma'], default='pascal')
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--epochs', type=int, default=None)
     parser.add_argument('--crop-size', type=int, default=None)
@@ -107,9 +107,10 @@ def main(args):
     #new pl stuff
     dict_args = vars(args)
     dict2 = dict_args.copy()
-    del dict2['backbone']                                                                                                                                                       
+    del dict2['backbone']    
+    num_classes = 21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19                                                                                                                                                   
     model_zoo = {'deeplabv3plus': DeepLabV3Plus, 'pspnet': PSPNet, 'deeplabv2': DeepLabV2, 'unet': Unet}
-    model = model_zoo[args.model](backbone=args.backbone, nclass=21 if args.dataset == 'pascal' else 4 if args.dataset == 'melanoma' else 19, **dict2)
+    model = model_zoo[args.model](backbone=args.backbone, nclass=num_classes, **dict2)
 
     head_lr_multiple = 10.0
     if args.model == 'deeplabv2':
@@ -122,13 +123,14 @@ def main(args):
 
     # saves a file like: my/path/sample-epoch=02-val_loss=0.32.ckpt
     checkpoint_callback = ModelCheckpoint(
-        dirpath="./model_checkpoints/",
-        filename='sample-epoch{epoch:02d}-val_loss{val_loss:.2f}',
-        auto_insert_metric_name=False
+        dirpath=os.path.join("./", f"{args.save_path}"),
+        auto_insert_metric_name=True
      )
-    
+     #filename=f'{args.model}-epoch{Trainer.current_epoch:02d}-val_loss{Trainer.val_loss:.2f}'
+    dev_run =False
     Trainer = pl.Trainer.from_argparse_args(args,
-        fast_dev_run=True,
+        fast_dev_run=dev_run,
+        max_epochs=args.epochs,
         log_every_n_steps=2,
         callbacks=[checkpoint_callback],
         gpus=[0])
@@ -148,32 +150,40 @@ def main(args):
         # automatically restores model, epoch, step, LR schedulers, apex, etc...
         checkpoint_callback.best_model_path
         dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
-        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=1, drop_last=False)
 
         # predict can run out of memory with one gpu and doenst return predicitions on 2 gpus. Try test_step: Trainer.predict() with write_prediction
-        pred_list = []
-        pred_list = Trainer.predict(model, dataloader, ckpt_path=checkpoint_callback.best_model_path)
+        stage_2_pl = False
+        if stage_2_pl:
+            pred_list = []
+            pred_list = Trainer.predict(model, dataloader, ckpt_path=checkpoint_callback.best_model_path)
 
-        metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19)
-        tbar = tqdm(pred_list)
-        i = 0
-        for pred, mask, id in tbar:
-            pred = torch.argmax(pred, dim=1).cpu()
-            #print(pred.numpy().size)
-            #print(mask.cpu().numpy().size)
-            metric.add_batch(pred.numpy(), mask.cpu().numpy())
-            mIOU = metric.evaluate()[-1]
-            pred = Image.fromarray(pred.squeeze(0).numpy().astype(np.uint8), mode='P')
-            pred.putpalette(color_map(args.dataset))
-            pred.save('%s/%s' % (args.pseudo_mask_path, os.path.basename(id[0].split(' ')[1])))
-            tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
 
+            #just for evaluation
+            metric = meanIOU(num_classes=num_classes)
+            tbar = tqdm(pred_list)
+            for pred, mask, id in tbar:
+                pred = torch.argmax(pred, dim=1).cpu()
+                #print(pred.numpy().size)
+                #print(mask.cpu().numpy().size)
+                metric.add_batch(pred.numpy(), mask.cpu().numpy())
+                mIOU = metric.evaluate()[-1]
+                pred = Image.fromarray(pred.squeeze(0).numpy().astype(np.uint8), mode='P')
+                pred.putpalette(color_map(args.dataset))
+                pred.save('%s/%s' % (args.pseudo_mask_path, os.path.basename(id[0].split(' ')[1])))
+                tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
+        else:
+            #laod latest checkpoint
+            model_path = os.path.join("./", args.save_path)
+            model.load_from_checkpoint(os.path.join(model_path, os.listdir(model_path)[0]),backbone=args.backbone, nclass=num_classes, **dict2)
+            label(model, dataloader, args)
     
         # <======================== Re-training on labeled and unlabeled images ========================>
         print('\n\n\n================> Total stage 3/3: Re-training on labeled and unlabeled images')
 
         Trainer = pl.Trainer.from_argparse_args(args,
-            fast_dev_run=True,
+            fast_dev_run=dev_run,
+            max_epochs=args.epochs,
             log_every_n_steps=2,
             callbacks=[checkpoint_callback],
             gpus=[0])
@@ -451,7 +461,7 @@ if __name__ == '__main__':
     if args.lr is None:
         args.lr = {'pascal': 0.001, 'cityscapes': 0.004, 'melanoma': 0.001}[args.dataset] / 16 * args.batch_size
     if args.crop_size is None:
-        args.crop_size = {'pascal': 224, 'cityscapes': 721, 'melanoma': 224}[args.dataset] #'pascal': 321,
+        args.crop_size = {'pascal': 321, 'cityscapes': 721, 'melanoma': 224}[args.dataset] #'pascal': 321,
 
 
     print()

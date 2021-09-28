@@ -18,7 +18,7 @@ class BaseNet(pl.LightningModule):
         parser.add_argument("--lr", type=float, default=0.001)
         return parent_parser
 
-    def __init__(self, backbone,*args, **kwargs):
+    def __init__(self, backbone, *args, **kwargs):
         lr = kwargs.get('lr')
         super(BaseNet, self).__init__()
         backbone_zoo = {'resnet18': resnet18, 'resnet50': resnet50, 'resnet101': resnet101}
