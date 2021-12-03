@@ -72,7 +72,7 @@ class BaseNet(pl.LightningModule):
         return {'loss': loss}
 
     def validation_step(self, batch, batch_idx):
-        img, mask, path = batch
+        img, mask = batch
         pred = self(img)
         self.metric.add_batch(torch.argmax(pred, dim=1).cpu().numpy(), mask.cpu().numpy())
         val_loss = self.metric.evaluate()[-1]

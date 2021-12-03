@@ -13,7 +13,7 @@ dataset="melanoma"
 data_root=r"C:/Users/Gustav/source/repos/Masterarbeit/Datasets/melanoma"
 labeled_id_path=r"dataset/splits/melanoma/1_8/split_0/labeled.txt",
 unlabeled_id_path=r"dataset/splits/melanoma/1_8/split_0/unlabeled.txt"
-batch_size = 1
+batch_size = 2
 crop_size = 100
 
 from dataset.isic_dermo_data_module import (

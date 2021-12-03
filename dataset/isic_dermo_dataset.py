@@ -70,7 +70,7 @@ class IsicDermoDataset(PartiallyLabeledDataset):
 
     def __getitem__(self, idx):
         #if file with image ids is available, use this file
-        if self.ids is None:          
+        if self.id_path is None:        
             img_path = os.path.join(self.samples_dir,
                     f"ISIC_{self.indices[idx]}.{self.samples_data_format}")
         else:
@@ -81,7 +81,7 @@ class IsicDermoDataset(PartiallyLabeledDataset):
 
         label = None
         if self.labels_available:
-            if self.ids is None:
+            if self.id_path is None:
                 label_path = os.path.join(
                     self.labels_dir, 
                     f"ISIC_{self.indices[idx]}_segmentation.{self.labels_data_format}"
@@ -90,7 +90,7 @@ class IsicDermoDataset(PartiallyLabeledDataset):
                 label_path = os.path.join(self.root_dir, id.split(' ')[1])
             label = Image.open(label_path)
         else:
-            #random image for label for shorter code
+            #open image as mask for label for shorter code
             label = Image.open(img_path)
                 
         #apply standart transformations
