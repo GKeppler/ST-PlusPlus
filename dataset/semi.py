@@ -55,6 +55,8 @@ class SemiDataset(Dataset):
 
         if self.mode == 'val' or self.mode == 'label':
             mask = Image.open(os.path.join(self.root, id.split(' ')[1]))
+            base_size = 256#400 if self.name == 'pascal' else 256 if self.name == 'melanoma' else 2048
+            img, mask = resize(img, mask, base_size, (0.5, 2.0))
             img, mask = normalize(img, mask)
             return img, mask, id
 

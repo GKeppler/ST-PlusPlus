@@ -10,6 +10,7 @@ from os.path import isfile, join
 
 # %%
 dataset = r"pascal"
+split = 1/8
 path = (r"C:\Users\Gustav\Documents\GitHub\Masterarbeit\Datasets\%s\SegmentationClass" % (dataset))
 print(path)
 filelist = []

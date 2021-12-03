@@ -8,6 +8,7 @@ from torch.optim import SGD, Adam
 from utils import count_params, meanIOU, color_map
 import torch
 from statistics import mean
+import os
 
 
 class BaseNet(pl.LightningModule):
@@ -22,7 +23,12 @@ class BaseNet(pl.LightningModule):
         lr = kwargs.get('lr')
         super(BaseNet, self).__init__()
         backbone_zoo = {'resnet18': resnet18, 'resnet50': resnet50, 'resnet101': resnet101}
+        self.backbone_name = backbone
         self.backbone = backbone_zoo[backbone](pretrained=True)
+        self.metric = meanIOU(num_classes=21) # change for dataset
+        self.criterion = CrossEntropyLoss(ignore_index=255)
+        self.previous_best = 0.0
+        self.args = kwargs
 
     def base_forward(self, x):
         h, w = x.shape[-2:]
@@ -60,22 +66,28 @@ class BaseNet(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         img, mask = batch
         pred = self(img)
-        loss = F.cross_entropy(pred, mask, ignore_index=255)
+        loss = self.criterion(pred, mask)
+        #loss = F.cross_entropy(pred, mask, ignore_index=255)
         #loss.requires_grad = True
         return {'loss': loss}
 
     def validation_step(self, batch, batch_idx):
-        pred, mask, path = batch
-        metric = meanIOU(num_classes=21) # change for dataset
-        metric.add_batch(torch.argmax(pred, dim=1).cpu().numpy(), mask.cpu().numpy())
-        val_loss = metric.evaluate()[-1]
+        img, mask, path = batch
+        pred = self(img)
+        self.metric.add_batch(torch.argmax(pred, dim=1).cpu().numpy(), mask.cpu().numpy())
+        val_loss = self.metric.evaluate()[-1]
         # wandb.log({"mIOU": mIOU,"step_val":step_val})
         return{"val_loss": val_loss}
 
     def validation_epoch_end(self, outputs):
-        val_loss = mean([x['val_loss'] for x in outputs])
-        log = {'avg_val_loss': val_loss}
-        # "val_loss" saves checkpoints: look for autocheckpoints
+        val_loss = outputs[-1]['val_loss']
+        log = {'mean mIOU': val_loss * 100}
+        mIOU = val_loss * 100.0
+        if mIOU > self.previous_best:
+            if self.previous_best != 0:
+                os.remove(os.path.join(self.args['save_path'], '%s_%s_mIOU%.2f.pth' % (self.args["model"], self.backbone_name, self.previous_best)))
+            self.previous_best = mIOU
+            torch.save(self.state_dict(), os.path.join(self.args['save_path'], '%s_%s_mIOU%.2f.pth' % (self.args["model"], self.backbone_name, mIOU)))
         return{"log": log, "val_loss": val_loss}
 
     def predict_step(self, batch, batch_idx: int, dataloader_idx: int = None):
@@ -91,8 +103,8 @@ class BaseNet(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = SGD(
             self.parameters(),
-            lr=0.001,#self.lr,
-            #momentum=0.9,
+            lr=0.01,#self.lr,
+            momentum=0.9,
             weight_decay=1e-4
             )
         #scheduler = torch.optim.ReduceLROnPlateau(optimizer, mode='min')
