@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 
 dataset="melanoma"
-data_root=r"C:/Users/Gustav/source/repos/Masterarbeit/Datasets/melanoma"
+data_root=r"/home/kit/stud/uwdus/Masterthesis/data/ISIC_Demo_2017/"
 labeled_id_path=r"dataset/splits/melanoma/1_8/split_0/labeled.txt",
 unlabeled_id_path=r"dataset/splits/melanoma/1_8/split_0/unlabeled.txt"
 batch_size = 2
@@ -35,7 +35,7 @@ Trainer = pl.Trainer(
 fast_dev_run=True,
 accelerator="cpu")
 from model.semseg.deeplabv3plus import DeepLabV3Plus
-Trainer.fit(model=DeepLabV3Plus(backbone="resnet18", nclass=2), datamodule=dataModule)
+Trainer.fit(model=DeepLabV3Plus(backbone="resnet50", nclass=2), datamodule=dataModule)
 
 
 

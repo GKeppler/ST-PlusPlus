@@ -3,7 +3,7 @@
 #SBATCH --time=18:00:00
 #SBATCH --gres=gpu:2
 #SBATCH --mail-type=ALL
-#SBATCH --mail-user=uwdus@kit.edu
+#SBATCH --mail-user=uwdus@student.kit.edu
 #SBATCH --error=%j_error.txt
 #SBATCH --output=%j_output.txt
 #SBATCH --job-name=STplus
@@ -35,4 +35,4 @@ CUDA_VISIBLE_DEVICES=0,1 python -W ignore main.py \
 --labeled-id-path dataset/splits/$semi_setting/labeled.txt \
 --unlabeled-id-path dataset/splits/$semi_setting/unlabeled.txt \
 --pseudo-mask-path outdir/pseudo_masks/$semi_setting \
---save-path outdir/models/$semi_setting --plus --reliable-id-path outdir/reliable_ids/$semi_setting1~
+--save-path outdir/models/$semi_setting --reliable-id-path outdir/reliable_ids/$semi_setting1~

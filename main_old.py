@@ -23,8 +23,8 @@ global step_train
 global step_val
 step_train = 0
 step_val = 0
-use_Wandb = True
 
+# changed default to melanoma
 def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')
 
@@ -56,6 +56,7 @@ def parse_args():
 
 
 def main(args):
+    use_Wandb = True
     if use_Wandb:
         wandb.init(project='ST++', entity='gkeppler')
         wandb.define_metric("step_train")
@@ -66,6 +67,7 @@ def main(args):
         wandb.define_metric("mIOU", step_metric="step_val")
 
         wandb.config.update(args)
+
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
     if not os.path.exists(args.pseudo_mask_path):
@@ -74,7 +76,7 @@ def main(args):
         exit('Please specify reliable-id-path in ST++.')
 
     criterion = CrossEntropyLoss(ignore_index=255)
-    ## changed crop from None to args.crop_size
+
     valset = SemiDataset(args.dataset, args.data_root, 'val', args.crop_size)
     valloader = DataLoader(valset, batch_size=4 if args.dataset == 'cityscapes' else 1,
                            shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
@@ -83,14 +85,11 @@ def main(args):
     print('\n================> Total stage 1/%i: '
           'Supervised training on labeled images (SupOnly)' % (6 if args.plus else 3))
 
-    global MODE
-    MODE = 'train'
-
-    trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.labeled_id_path)
+    trainset = SemiDataset(args.dataset, args.data_root, 'train', args.crop_size, args.labeled_id_path)
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
     subset_indices = list(range(10))
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                             pin_memory=True, num_workers=16, drop_last=True)#,sampler=torch.utils.data.SubsetRandomSampler(subset_indices))
+                             pin_memory=True, num_workers=4, drop_last=True)#,sampler=torch.utils.data.SubsetRandomSampler(subset_indices))
 
     model, optimizer = init_basic_elems(args)
     print('\nParams: %.1fM' % count_params(model))
@@ -117,7 +116,7 @@ def main(args):
         trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
                                args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
         trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                                 pin_memory=True, num_workers=16, drop_last=True)
+                                 pin_memory=True, num_workers=4, drop_last=True)
 
         model, optimizer = init_basic_elems(args)
 
@@ -262,34 +261,34 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 img = img.cuda()
                 pred = model(img)
                 pred = torch.argmax(pred, dim=1)
-
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
+                #print(np.unique(np.squeeze(pred.cpu().numpy(), axis=0)))
                 mIOU = metric.evaluate()[-1]
-                if use_Wandb:
-                    wandb.log({"mIOU": mIOU,"step_val":step_val})
-                    if i <= 10:
-                        wandb.log({"img": [wandb.Image(img, caption="img")]})
-                        wandb.log({"mask": [wandb.Image(pred.cpu().numpy(), caption="mask")]})
-                        class_lables = dict((el, "something") for el in list(range(21)))
-                        class_lables.update({255: "boarder"})
-                        class_lables.update({0: "nothing"})
-                        wandb_iamge = wandb.Image(img, masks={
-                            "predictions": {
-                                "mask_data": np.squeeze(pred.cpu().numpy(), axis=0),
-                                "class_labels": class_lables
-                            },
-                            "ground_truth": {
-                                "mask_data": np.squeeze(mask.numpy(), axis=0),
-                                "class_labels": class_lables
-                            }
-                        })
-                        wandb_iamges.append(wandb_iamge)
+                wandb.log({"mIOU": mIOU,"step_val":step_val})
+                if i <= 10:
+                    wandb.log({"img": [wandb.Image(img, caption="img")]})
+                    wandb.log({"mask": [wandb.Image(pred.cpu().numpy(), caption="mask")]})
+                    class_lables = dict((el, "something") for el in list(range(21)))
+                    class_lables.update({255: "boarder"})
+                    class_lables.update({0: "nothing"})
+                    wandb_iamge = wandb.Image(img, masks={
+                        "predictions": {
+                            "mask_data": np.squeeze(pred.cpu().numpy(), axis=0),
+                            "class_labels": class_lables
+                        },
+                        "ground_truth": {
+                            "mask_data": np.squeeze(mask.numpy(), axis=0),
+                            "class_labels": class_lables
+                        }
+                    })
+                    wandb_iamges.append(wandb_iamge)
                 tbar.set_description('mean mIOU: %.2f' % (mIOU * 100.0))
                 step_val += 1
 
-                tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
-        if use_Wandb:
-            wandb.log({"Pictures": wandb_iamges,"step_epoch":epoch})
+        
+        
+        
+        wandb.log({"Pictures": wandb_iamges,"step_epoch":epoch})
         mIOU *= 100.0
         if mIOU > previous_best:
             if previous_best != 0:
