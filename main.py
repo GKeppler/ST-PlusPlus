@@ -23,7 +23,7 @@ global step_train
 global step_val
 step_train = 0
 step_val = 0
-use_Wandb = True
+use_Wandb = False
 
 def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')
@@ -40,8 +40,7 @@ def parse_args():
                         default='deeplabv3plus')
 
     # semi-supervised settings
-    parser.add_argument('--labeled-id-path', type=str, default="dataset/splits/melanoma/1_8/split_0/labeled.txt")
-    parser.add_argument('--unlabeled-id-path', type=str, default='dataset/splits/melanoma/1_8/split_0/unlabeled.txt')
+    parser.add_argument('--split-file-path', type=str, default="dataset/splits/melanoma/1_8/split_0/split.yaml")
     parser.add_argument('--pseudo-mask-path', type=str, default='outdir/pseudo_masks/melanoma/1_8/split_0')
 
     parser.add_argument('--save-path', type=str, default='outdir/models/melanoma/1_8/split_0')
@@ -75,7 +74,7 @@ def main(args):
 
     criterion = CrossEntropyLoss(ignore_index=255)
     ## changed crop from None to args.crop_size
-    valset = SemiDataset(args.dataset, args.data_root, 'val', args.crop_size)
+    valset = SemiDataset(args.dataset, args.data_root, 'val', args.crop_size,args.split_file_path)
     valloader = DataLoader(valset, batch_size=4 if args.dataset == 'cityscapes' else 1,
                            shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
@@ -86,7 +85,7 @@ def main(args):
     global MODE
     MODE = 'train'
 
-    trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.labeled_id_path)
+    trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.split_file_path)
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
     subset_indices = list(range(10))
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,

@@ -6,10 +6,10 @@ from PIL import Image
 import random
 from torch.utils.data import Dataset
 from torchvision import transforms
-
+import yaml
 
 class SemiDataset(Dataset):
-    def __init__(self, name, root, mode, size, labeled_id_path=None, unlabeled_id_path=None, pseudo_mask_path=None):
+    def __init__(self, name, root, mode, size, split_file_path=None, pseudo_mask_path=None):
         """
         :param name: dataset name, pascal, melanoma or cityscapes
         :param root: root path of the dataset.
@@ -19,8 +19,7 @@ class SemiDataset(Dataset):
                      val: validation.
 
         :param size: crop size of training images.
-        :param labeled_id_path: path of labeled image ids, needed in train or semi_train mode.
-        :param unlabeled_id_path: path of unlabeled image ids, needed in semi_train or label mode.
+        :param split_file_path: path of yaml file for splits.
         :param pseudo_mask_path: path of generated pseudo masks, needed in semi_train mode.
         """
         self.name = name
@@ -31,23 +30,21 @@ class SemiDataset(Dataset):
         self.pseudo_mask_path = pseudo_mask_path
 
         if mode == 'semi_train':
-            with open(labeled_id_path, 'r') as f:
-                self.labeled_ids = f.read().splitlines()
-            with open(unlabeled_id_path, 'r') as f:
-                self.unlabeled_ids = f.read().splitlines()
-            self.ids = \
-                self.labeled_ids * math.ceil(len(self.unlabeled_ids) / len(self.labeled_ids)) + self.unlabeled_ids
-
+            with open(split_file_path,'r') as file:
+                split_dict = yaml.load(file, Loader=yaml.FullLoader)
+                self.labeled_ids = split_dict["labeled"]
+                self.unlabeled_ids = split_dict["unlabeled"]
+                self.ids = \
+                    self.labeled_ids * math.ceil(len(self.unlabeled_ids) / len(self.labeled_ids)) + self.unlabeled_ids
         else:
-            if mode == 'val':
-                id_path = 'dataset/splits/%s/val.txt' % name
-            elif mode == 'label':
-                id_path = unlabeled_id_path
-            elif mode == 'train':
-                id_path = labeled_id_path
-
-            with open(id_path, 'r') as f:
-                self.ids = f.read().splitlines()
+            with open(split_file_path) as file:
+                split_dict = yaml.load(file, Loader=yaml.FullLoader)
+                if mode == 'val':
+                    self.ids = split_dict["val"]
+                elif mode == 'label':
+                    self.ids = split_dict["unlabeled"]
+                elif mode == 'train':
+                    self.ids = split_dict["labeled"]  
 
     def __getitem__(self, item):
         id = self.ids[item]

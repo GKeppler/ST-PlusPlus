@@ -47,26 +47,16 @@ class IsicDermoDataset(PartiallyLabeledDataset):
         else:
             self.transforms = [self.transforms]
 
-        all_samples_sorted = sorted(
-            glob.glob(f"{self.samples_dir}{os.path.sep}*.{self.samples_data_format}"),
-            key=lambda x: int(x.split(f'.{self.samples_data_format}')[0].split('_')[-1]),
-        )
         self.indices = []
         if not empty_dataset:
             if self.id_path is not None:
                 with open(id_path, 'r') as f:
-                    self.ids = f.read().splitlines()
-            else:
-                self.indices = [i.split(f'.{self.samples_data_format}')[0].split('_')[-1] for i in all_samples_sorted]
-        
+                    self.indices = f.read().splitlines()
         self.raw_mode = False
 
     
     def __len__(self):
-        if self.id_path is None:
-            return len(self.indices)
-        else:
-            return len(self.ids)
+        return len(self.indices)
 
     def __getitem__(self, idx):
         #if file with image ids is available, use this file
@@ -74,7 +64,7 @@ class IsicDermoDataset(PartiallyLabeledDataset):
             img_path = os.path.join(self.samples_dir,
                     f"ISIC_{self.indices[idx]}.{self.samples_data_format}")
         else:
-            id = self.ids[idx]
+            id = self.indices[idx]
             img_path = os.path.join(self.root_dir, id.split(' ')[0])
             
         img = Image.open(img_path)
