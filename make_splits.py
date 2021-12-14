@@ -28,7 +28,6 @@ if csv:
         val_filelist.append("images/%s.jpg labels/%s_segmentation.png"% (row[1]["image_id"], row[1]["image_id"]))
 else:
     training_filelist = ["images/%s.jpg SegmentationClass/%s"%(f[:-4],f) for f in listdir(path) if isfile(join(path, f))]
-
 list_len = len(training_filelist)
 print(training_filelist[:2],list_len)
 
@@ -49,8 +48,8 @@ for split in splits:
     random.shuffle(training_filelist)
     labeled_splitpoint = int(list_len*float(eval(split)))
     print(f'splitpoint for {split} in dataset with list_len {list_len} are {labeled_splitpoint}')
-    unlabeled_data = training_filelist[:labeled_splitpoint]
-    labeled_data = training_filelist[labeled_splitpoint:]
+    unlabeled_data = training_filelist[labeled_splitpoint:]
+    labeled_data = training_filelist[:labeled_splitpoint]
     yaml_dict = dict(
         unlabeled=unlabeled_data,
         labeled=labeled_data,

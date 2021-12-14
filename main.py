@@ -18,12 +18,14 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import wandb
 import cv2
+import yaml
+
 MODE = None
 global step_train
 global step_val
 step_train = 0
 step_val = 0
-use_Wandb = True
+use_Wandb = False
 
 def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')
@@ -33,7 +35,7 @@ def parse_args():
     parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes', 'melanoma'], default='melanoma')
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--lr', type=float, default=None)
-    parser.add_argument('--epochs', type=int, default=10)
+    parser.add_argument('--epochs', type=int, default=2)
     parser.add_argument('--crop-size', type=int, default=None)
     parser.add_argument('--backbone', type=str, choices=['resnet18', 'resnet50', 'resnet101'], default='resnet50')
     parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2', 'unet'],
@@ -46,8 +48,8 @@ def parse_args():
     parser.add_argument('--save-path', type=str, default='outdir/models/melanoma/1_8/split_0')
 
     # arguments for ST++
-    parser.add_argument('--reliable-id-path', type=str)
-    parser.add_argument('--plus', dest='plus', default=False, action='store_true',
+    parser.add_argument('--reliable-id-path', type=str, default = 'outdir/reliable_ids/melanoma/1_8/split_0')
+    parser.add_argument('--plus', dest='plus', default=True, action='store_true',
                         help='whether to use ST++')
 
     args = parser.parse_args()
@@ -103,7 +105,7 @@ def main(args):
         # <============================= Pseudo label all unlabeled images =============================>
         print('\n\n\n================> Total stage 2/3: Pseudo labeling all unlabeled images')
 
-        dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
+        dataset = SemiDataset(args.dataset, args.data_root, 'label', None, args.split_file_path)
         dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
         label(best_model, dataloader, args)
@@ -113,8 +115,7 @@ def main(args):
 
         MODE = 'semi_train'
 
-        trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
-                               args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
+        trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.split_file_path, args.pseudo_mask_path)
         trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
                                  pin_memory=True, num_workers=16, drop_last=True)
 
@@ -130,7 +131,7 @@ def main(args):
     # <===================================== Select Reliable IDs =====================================>
     print('\n\n\n================> Total stage 2/6: Select reliable images for the 1st stage re-training')
 
-    dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
+    dataset = SemiDataset(args.dataset, args.data_root, 'label', None, args.split_file_path)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     select_reliable(checkpoints, dataloader, args)
@@ -138,8 +139,8 @@ def main(args):
     # <================================ Pseudo label reliable images =================================>
     print('\n\n\n================> Total stage 3/6: Pseudo labeling reliable images')
 
-    cur_unlabeled_id_path = os.path.join(args.reliable_id_path, 'reliable_ids.txt')
-    dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, cur_unlabeled_id_path)
+    cur_unlabeled_id_path = os.path.join(args.reliable_id_path, 'reliable_ids.yaml')
+    dataset = SemiDataset(args.dataset, args.data_root, 'label', None, cur_unlabeled_id_path,None,True)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     label(best_model, dataloader, args)
@@ -150,7 +151,7 @@ def main(args):
     MODE = 'semi_train'
 
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
-                           args.labeled_id_path, cur_unlabeled_id_path, args.pseudo_mask_path)
+                           cur_unlabeled_id_path, args.pseudo_mask_path,True)
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
                              pin_memory=True, num_workers=16, drop_last=True)
 
@@ -161,8 +162,8 @@ def main(args):
     # <=============================== Pseudo label unreliable images ================================>
     print('\n\n\n================> Total stage 5/6: Pseudo labeling unreliable images')
 
-    cur_unlabeled_id_path = os.path.join(args.reliable_id_path, 'unreliable_ids.txt')
-    dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, cur_unlabeled_id_path)
+    cur_unlabeled_id_path = os.path.join(args.reliable_id_path, 'reliable_ids.yaml')
+    dataset = SemiDataset(args.dataset, args.data_root, 'label', None, cur_unlabeled_id_path,None,False)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     label(best_model, dataloader, args)
@@ -171,7 +172,7 @@ def main(args):
     print('\n\n\n================> Total stage 6/6: The 2nd stage re-training on labeled and all unlabeled images')
 
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
-                           args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
+                           args.split_file_path, args.pseudo_mask_path)
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
                              pin_memory=True, num_workers=16, drop_last=True)
 
@@ -267,8 +268,8 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 if use_Wandb:
                     wandb.log({"mIOU": mIOU,"step_val":step_val})
                     if i <= 10:
-                        wandb.log({"img": [wandb.Image(img, caption="img")]})
-                        wandb.log({"mask": [wandb.Image(pred.cpu().numpy(), caption="mask")]})
+                        #wandb.log({"img": [wandb.Image(img, caption="img")]})
+                        #wandb.log({"mask": [wandb.Image(pred.cpu().numpy(), caption="mask")]})
                         class_lables = dict((el, "something") for el in list(range(21)))
                         class_lables.update({255: "boarder"})
                         class_lables.update({0: "nothing"})
@@ -328,27 +329,42 @@ def select_reliable(models, dataloader, args):
 
             mIOU = []
             for i in range(len(preds) - 1):
-                metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 19)
+                metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19)
                 metric.add_batch(preds[i], preds[-1])
                 mIOU.append(metric.evaluate()[-1])
 
             reliability = sum(mIOU) / len(mIOU)
             id_to_reliability.append((id[0], reliability))
 
-    id_to_reliability.sort(key=lambda elem: elem[1], reverse=True)
-    with open(os.path.join(args.reliable_id_path, 'reliable_ids.txt'), 'w') as f:
-        for elem in id_to_reliability[:len(id_to_reliability) // 2]:
-            f.write(elem[0] + '\n')
-    with open(os.path.join(args.reliable_id_path, 'unreliable_ids.txt'), 'w') as f:
-        for elem in id_to_reliability[len(id_to_reliability) // 2:]:
-            f.write(elem[0] + '\n')
+    # id_to_reliability.sort(key=lambda elem: elem[1], reverse=True)
+    # with open(os.path.join(args.reliable_id_path, 'reliable_ids.txt'), 'w') as f:
+    #     for elem in id_to_reliability[:len(id_to_reliability) // 2]:
+    #         f.write(elem[0] + '\n')
+    # with open(os.path.join(args.reliable_id_path, 'unreliable_ids.txt'), 'w') as f:
+    #     for elem in id_to_reliability[len(id_to_reliability) // 2:]:
+    #         f.write(elem[0] + '\n')
+
+    #load lableed filelist
+    labeled_ids = []
+    with open(args.split_file_path,'r') as file:
+        split_dict = yaml.load(file, Loader=yaml.FullLoader)
+        labeled_ids = split_dict["labeled"]
+
+    yaml_dict = dict(
+        labeled=labeled_ids,
+        reliable=[i[0] for i in id_to_reliability[:len(id_to_reliability) // 2]],
+        unreliable=[i[0] for i in id_to_reliability[len(id_to_reliability) // 2:]]
+        )
+    #save to yaml
+    with open(os.path.join(args.reliable_id_path, 'reliable_ids.yaml'), 'w+') as outfile:
+        yaml.dump(yaml_dict, outfile, default_flow_style=False)
 
 
 def label(model, dataloader, args):
     model.eval()
     tbar = tqdm(dataloader)
 
-    metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 19)
+    metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19)
     cmap = color_map(args.dataset)
 
     with torch.no_grad():
@@ -379,7 +395,6 @@ if __name__ == '__main__':
         args.lr = {'pascal': 0.001, 'cityscapes': 0.004, 'melanoma': 0.001}[args.dataset] / 16 * args.batch_size
     if args.crop_size is None:
         args.crop_size = {'pascal': 321, 'cityscapes': 721, 'melanoma': 256}[args.dataset] #'pascal': 321,
-
     print()
     print(args)
 

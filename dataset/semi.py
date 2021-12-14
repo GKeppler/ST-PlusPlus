@@ -9,7 +9,7 @@ from torchvision import transforms
 import yaml
 
 class SemiDataset(Dataset):
-    def __init__(self, name, root, mode, size, split_file_path=None, pseudo_mask_path=None):
+    def __init__(self, name, root, mode, size, split_file_path=None, pseudo_mask_path=None,reliable=None):
         """
         :param name: dataset name, pascal, melanoma or cityscapes
         :param root: root path of the dataset.
@@ -33,7 +33,13 @@ class SemiDataset(Dataset):
             with open(split_file_path,'r') as file:
                 split_dict = yaml.load(file, Loader=yaml.FullLoader)
                 self.labeled_ids = split_dict["labeled"]
-                self.unlabeled_ids = split_dict["unlabeled"]
+                if reliable is None:          
+                    self.unlabeled_ids = split_dict["unlabeled"]
+                elif reliable is True:
+                    self.unlabeled_ids = split_dict["reliable"]
+                elif reliable is False:
+                    self.unlabeled_ids = split_dict["unreliable"]
+                #multiply label to match the cound of unlabled
                 self.ids = \
                     self.labeled_ids * math.ceil(len(self.unlabeled_ids) / len(self.labeled_ids)) + self.unlabeled_ids
         else:
@@ -42,7 +48,12 @@ class SemiDataset(Dataset):
                 if mode == 'val':
                     self.ids = split_dict["val"]
                 elif mode == 'label':
-                    self.ids = split_dict["unlabeled"]
+                    if reliable is None:
+                        self.ids = split_dict["unlabeled"]
+                    elif reliable is True:
+                        self.ids = split_dict["reliable"]
+                    elif reliable is False:
+                        self.ids = split_dict["unreliable"]
                 elif mode == 'train':
                     self.ids = split_dict["labeled"]  
 
