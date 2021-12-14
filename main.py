@@ -17,23 +17,23 @@ from torch.optim import SGD
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import wandb
-
+import cv2
 MODE = None
 global step_train
 global step_val
 step_train = 0
 step_val = 0
-use_Wandb = False
+use_Wandb = True
 
 def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')
 
     # basic settings
-    parser.add_argument('--data-root', type=str, default="/home/kit/stud/uwdus/Masterthesis/data/ISIC_Demo_2017")
+    parser.add_argument('--data-root', type=str, default="/lsdf/kit/iai/projects/iai-aida/Daten_Keppler/ISIC_Demo_2017")
     parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes', 'melanoma'], default='melanoma')
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--lr', type=float, default=None)
-    parser.add_argument('--epochs', type=int, default=1)
+    parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--crop-size', type=int, default=None)
     parser.add_argument('--backbone', type=str, choices=['resnet18', 'resnet50', 'resnet101'], default='resnet50')
     parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2', 'unet'],
@@ -272,13 +272,13 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                         class_lables = dict((el, "something") for el in list(range(21)))
                         class_lables.update({255: "boarder"})
                         class_lables.update({0: "nothing"})
-                        wandb_iamge = wandb.Image(img, masks={
+                        wandb_iamge = wandb.Image(cv2.resize(np.moveaxis(np.squeeze(img.cpu().numpy(), axis=0), 0, -1), dsize=(100, 100), interpolation=cv2.INTER_NEAREST), masks={
                             "predictions": {
-                                "mask_data": np.squeeze(pred.cpu().numpy(), axis=0),
+                                "mask_data": cv2.resize(np.squeeze(pred.cpu().numpy(), axis=0), dsize=(100, 100), interpolation=cv2.INTER_NEAREST),
                                 "class_labels": class_lables
                             },
                             "ground_truth": {
-                                "mask_data": np.squeeze(mask.numpy(), axis=0),
+                                "mask_data": cv2.resize(np.squeeze(mask.numpy(), axis=0), dsize=(100, 100), interpolation=cv2.INTER_NEAREST),
                                 "class_labels": class_lables
                             }
                         })
