@@ -184,7 +184,7 @@ def main(args):
 
 def init_basic_elems(args):
     model_zoo = {'deeplabv3plus': DeepLabV3Plus, 'pspnet': PSPNet, 'deeplabv2': DeepLabV2, 'unet': Unet}
-    model = model_zoo[args.model](args.backbone, 21 if args.dataset == 'pascal' else 19)
+    model = model_zoo[args.model](args.backbone, 21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19)
 
     head_lr_multiple = 10.0
     if args.model == 'deeplabv2':
