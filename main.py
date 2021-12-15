@@ -49,7 +49,7 @@ def parse_args():
 
     # arguments for ST++
     parser.add_argument('--reliable-id-path', type=str, default = 'outdir/reliable_ids/melanoma/1_8/split_0')
-    parser.add_argument('--plus', dest='plus', default=True, action='store_true',
+    parser.add_argument('--plus', dest='plus', default=False, action='store_true',
                         help='whether to use ST++')
 
     args = parser.parse_args()
