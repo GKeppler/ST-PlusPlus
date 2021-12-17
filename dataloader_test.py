@@ -10,9 +10,7 @@ from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 
 dataset="melanoma"
-data_root=r"/home/kit/stud/uwdus/Masterthesis/data/ISIC_Demo_2017/"
-labeled_id_path=r"dataset/splits/melanoma/1_8/split_0/labeled.txt",
-unlabeled_id_path=r"dataset/splits/melanoma/1_8/split_0/unlabeled.txt"
+data_root=r"/lsdf/kit/iai/projects/iai-aida/Daten_Keppler/ISIC_Demo_2017"
 batch_size = 2
 crop_size = 100
 
@@ -23,13 +21,14 @@ from dataset.isic_dermo_data_module import (
 dataModule = IsicDermoDataModule(
         root_dir = data_root,
         batch_size = batch_size,
-        labeled_id_path="dataset/splits/melanoma/1_8/split_0/labeled.txt",
-        unlabeled_id_path="dataset/splits/melanoma/1_8/split_0/unlabeled.txt",  
+        train_yaml_path="dataset/splits/melanoma/1_8/split_0/split.yaml",
+        test_yaml_path="dataset/splits/melanoma/test.yaml",  
 )
 
-#test = dataModule.labeled_train_dataset.__getitem__(2)
-#test2 = dataModule.unlabeled_train_dataset.__getitem__(2)                                                                                                                                                 
-
+test = dataModule.labeled_train_dataset.__getitem__(2)
+test2 = dataModule.test_dataset.__getitem__(2)
+test3 = dataModule.unlabeled_train_dataset.__getitem__(2)                                                                                                                                               
+test4 = dataModule.val_dataset.__getitem__(2)
 
 Trainer = pl.Trainer(
 fast_dev_run=True,

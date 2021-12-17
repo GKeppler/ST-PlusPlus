@@ -35,20 +35,20 @@ def parse_args():
     parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes', 'melanoma'], default='melanoma')
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--lr', type=float, default=None)
-    parser.add_argument('--epochs', type=int, default=2)
+    parser.add_argument('--epochs', type=int, default=20)
     parser.add_argument('--crop-size', type=int, default=None)
     parser.add_argument('--backbone', type=str, choices=['resnet18', 'resnet50', 'resnet101'], default='resnet50')
     parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2', 'unet'],
                         default='deeplabv3plus')
 
     # semi-supervised settings
-    parser.add_argument('--split-file-path', type=str, default="dataset/splits/melanoma/1_8/split_0/split.yaml")
-    parser.add_argument('--pseudo-mask-path', type=str, default='outdir/pseudo_masks/melanoma/1_8/split_0')
+    parser.add_argument('--split-file-path', type=str, default="dataset/splits/melanoma/1_30/split_0/split.yaml")
+    parser.add_argument('--pseudo-mask-path', type=str, default='outdir/pseudo_masks/melanoma/1_30/split_0')
 
-    parser.add_argument('--save-path', type=str, default='outdir/models/melanoma/1_8/split_0')
+    parser.add_argument('--save-path', type=str, default='outdir/models/melanoma/1_30/split_0')
 
     # arguments for ST++
-    parser.add_argument('--reliable-id-path', type=str, default = 'outdir/reliable_ids/melanoma/1_8/split_0')
+    parser.add_argument('--reliable-id-path', type=str, default = 'outdir/reliable_ids/melanoma/1_30/split_0')
     parser.add_argument('--plus', dest='plus', default=False, action='store_true',
                         help='whether to use ST++')
 
@@ -76,7 +76,7 @@ def main(args):
 
     criterion = CrossEntropyLoss(ignore_index=255)
     ## changed crop from None to args.crop_size
-    valset = SemiDataset(args.dataset, args.data_root, 'val', args.crop_size,args.split_file_path)
+    valset = SemiDataset(args.dataset, args.data_root, 'val', args.crop_size, args.split_file_path)
     valloader = DataLoader(valset, batch_size=4 if args.dataset == 'cityscapes' else 1,
                            shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
@@ -243,7 +243,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
             optimizer.param_groups[1]["lr"] = lr * 1.0 if args.model == 'deeplabv2' else lr * 10.0
 
             #wandb log with custom step
-            #wandb.log({"loss": loss,"step_train":step_train, "epoch": epoch})
+            wandb.log({"loss": loss,"step_train":step_train, "epoch": epoch})
             step_train += 1
             tbar.set_description('Loss: %.3f' % (total_loss / (i + 1)))
 
@@ -290,6 +290,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
         if use_Wandb:
             wandb.log({"Pictures": wandb_iamges,"step_epoch":epoch})
+            wandb.log({"final mIOU": mIOU})
         mIOU *= 100.0
         if mIOU > previous_best:
             if previous_best != 0:

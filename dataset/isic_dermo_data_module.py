@@ -1,5 +1,6 @@
 import os
 import random
+import yaml
 from dataset.partially_labeled_lightning_data_module import (
     PartiallyLabeledLightningDataModule,
 )
@@ -10,13 +11,11 @@ class IsicDermoDataModule(PartiallyLabeledLightningDataModule):
         self,
         root_dir: str,
         batch_size: int,
-        #val_to_train_ratio,
-        labeled_id_path=None,
-        unlabeled_id_path=None,
+        train_yaml_path: str,
+        test_yaml_path:str,
         dataset_size = 1.0,
         shuffle=True,
         drop_last=True,
-        initial_labeled_ratio=None,
         train_transforms=None,
         train_transforms_unlabeled=None,
         val_transforms=None,
@@ -24,24 +23,20 @@ class IsicDermoDataModule(PartiallyLabeledLightningDataModule):
         return_unlabeled_trafos=False,
         num_workers=0,
         pin_memory=False,
-        initial_labeled_size=None,
     ):
         super().__init__(
-            initial_labeled_ratio,
             num_workers,
             pin_memory,
             shuffle,
             drop_last,
-            initial_labeled_size
         )
-        #self.val_to_train_ratio = val_to_train_ratio
         self.root_dir = root_dir
-        self.labeled_id_path = labeled_id_path
-        self.unlabeled_id_path = unlabeled_id_path
         self.dataset_size = dataset_size
         self.train_root_dir = os.path.join(self.root_dir, "train")
         self.test_root_dir = os.path.join(self.root_dir, "test")
         self.batch_size = batch_size
+        self.train_yaml_path = train_yaml_path
+        self.test_yaml_path = test_yaml_path
         self.train_transforms = train_transforms
         self.train_transforms_unlabeled = (
             train_transforms_unlabeled
@@ -58,10 +53,14 @@ class IsicDermoDataModule(PartiallyLabeledLightningDataModule):
         self.__init_datasets()
 
     def __init_datasets(self):
+        with open(self.train_yaml_path,'r') as file:
+            split_dict = yaml.load(file, Loader=yaml.FullLoader)
+        val_split_0 = split_dict["val_split_0"]
+        
         self.labeled_train_dataset = IsicDermoDataset(
             root_dir=self.train_root_dir,
             transforms=self.train_transforms,
-            id_path = self.labeled_id_path,
+            id_list = val_split_0["labeled"],
         )
 
         self.unlabeled_train_dataset = IsicDermoDataset(
@@ -69,24 +68,21 @@ class IsicDermoDataModule(PartiallyLabeledLightningDataModule):
             transforms=self.train_transforms_unlabeled,
             labels_available=False,
             return_trafos=self.return_unlabeled_trafos,
-            id_path = self.unlabeled_id_path,
+            id_list = val_split_0["unlabeled"]
         )
-        # for _ in range(int(len(self.labeled_train_dataset) * (1 - self.dataset_size))):
-        #     self.labeled_train_dataset.pop_sample(random.randrange(len(self.labeled_train_dataset)))
-        # for _ in range(int(len(self.labeled_train_dataset) * (1 - self.labeled_ratio))):
-        #     self.unlabeled_train_dataset.add_sample(
-        #         self.labeled_train_dataset.pop_sample(
-        #             random.randrange(len(self.labeled_train_dataset))
-        #         )
-        #     )
 
-        self.test_dataset = IsicDermoDataset(
-            root_dir=self.test_root_dir,
-            transforms=self.test_transforms,
-        )
-        
         self.val_dataset = IsicDermoDataset(
             root_dir=self.train_root_dir,
             transforms=self.val_transforms,
+            id_list = val_split_0["val"]
             #empty_dataset=True,
+        )
+
+        with open(self.test_yaml_path,'r') as file:
+            test_dict = yaml.load(file, Loader=yaml.FullLoader)
+       
+        self.test_dataset = IsicDermoDataset(
+            root_dir=self.test_root_dir,
+            transforms=self.test_transforms,
+            id_list=test_dict
         )

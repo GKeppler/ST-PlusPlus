@@ -19,23 +19,16 @@ class IsicDermoDataset(PartiallyLabeledDataset):
     def __init__(
         self,
         root_dir: str,
-        id_path=None,
+        id_list: [],
         pseudo_mask_path="todo",
-        samples_data_format="jpg",
-        labels_data_format="png",
         transforms=None,
         empty_dataset=False,
         insert_bg_class=False,
         labels_available=True,
-        return_trafos=False,
-        
+        return_trafos=False,       
     ):
         self.root_dir = root_dir
-        self.id_path = id_path
-        self.samples_data_format = samples_data_format
-        self.labels_data_format = labels_data_format
-        self.labels_dir = os.path.join(self.root_dir, 'labels')
-        self.samples_dir = os.path.join(self.root_dir, 'images')
+        self.id_list = id_list
         self.insert_bg_class = insert_bg_class
         self.labels_available = labels_available
         self.return_trafos = return_trafos
@@ -47,42 +40,25 @@ class IsicDermoDataset(PartiallyLabeledDataset):
         else:
             self.transforms = [self.transforms]
 
-        self.indices = []
-        if not empty_dataset:
-            if self.id_path is not None:
-                with open(id_path, 'r') as f:
-                    self.indices = f.read().splitlines()
-        self.raw_mode = False
+        self.indices = id_list.copy()
 
     
     def __len__(self):
         return len(self.indices)
 
     def __getitem__(self, idx):
-        #if file with image ids is available, use this file
-        if self.id_path is None:        
-            img_path = os.path.join(self.samples_dir,
-                    f"ISIC_{self.indices[idx]}.{self.samples_data_format}")
-        else:
-            id = self.indices[idx]
-            img_path = os.path.join(self.root_dir, id.split(' ')[0])
+        id = self.indices[idx]
+        img_path = os.path.join(self.root_dir, id.split(' ')[0])
             
         img = Image.open(img_path)
 
-        label = None
         if self.labels_available:
-            if self.id_path is None:
-                label_path = os.path.join(
-                    self.labels_dir, 
-                    f"ISIC_{self.indices[idx]}_segmentation.{self.labels_data_format}"
-                )
-            else:
-                label_path = os.path.join(self.root_dir, id.split(' ')[1])
+            label_path = os.path.join(self.root_dir, id.split(' ')[1])
             label = Image.open(label_path)
         else:
             #open image as mask for label for shorter code
             label = Image.open(img_path)
-                
+
         #apply standart transformations
         base_size = 256#400 if self.name == 'pascal' else 256 if self.name == 'melanoma' else 2048
         img, label = resize(img, label, base_size, (0.5, 2.0))
@@ -102,13 +78,6 @@ class IsicDermoDataset(PartiallyLabeledDataset):
             return img, label 
         return img
 
-        # raw mode -> no transforms
-        if self.raw_mode:
-            if self.labels_available:
-                return sample_img,label
-            else:
-                return sample_img
-        
         sample_img_lst = []
         label_lst = []
         trafo_lst = []
