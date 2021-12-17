@@ -21,41 +21,44 @@ from pytorch_lightning.callbacks import ModelCheckpoint, base
 from tqdm import tqdm
 import wandb
 from pytorch_lightning.utilities.cli import LightningCLI
-
+from dataset.isic_dermo_data_module import (
+    IsicDermoDataModule,
+)
 
 MODE = None
 global step_train 
 global step_val
 step_train = 0
 step_val = 0
-
+use_wandb = False
 
 def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')
 
     # basic settings
-    parser.add_argument('--data-root', type=str, required=True)
-    parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes', 'melanoma'], default='pascal')
+    parser.add_argument('--data-root', type=str, default="/lsdf/kit/iai/projects/iai-aida/Daten_Keppler/ISIC_Demo_2017")
+    parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes', 'melanoma'], default='melanoma')
     parser.add_argument('--batch-size', type=int, default=16)
-    parser.add_argument('--epochs', type=int, default=None)
+    parser.add_argument('--lr', type=float, default=None)
+    parser.add_argument('--epochs', type=int, default=20)
     parser.add_argument('--crop-size', type=int, default=None)
     parser.add_argument('--backbone', type=str, choices=['resnet18', 'resnet50', 'resnet101'], default='resnet50')
     parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2', 'unet'],
                         default='deeplabv3plus')
-    #parser.add_argument('--lr', type=float, default=0.001)
-
 
     # semi-supervised settings
-    parser.add_argument('--labeled-id-path', type=str, required=True)
-    parser.add_argument('--unlabeled-id-path', type=str, required=True)
-    parser.add_argument('--pseudo-mask-path', type=str, required=True)
+    parser.add_argument('--train-yaml', type=str, default="dataset/splits/melanoma/1_30/split_0/split.yaml")
+    parser.add_argument('--test-yaml', type=str, default="dataset/splits/melanoma/test.yaml")
+    parser.add_argument('--pseudo-mask-path', type=str, default='outdir/pseudo_masks/melanoma/1_30/split_0')
 
-    parser.add_argument('--save-path', type=str, required=True)
+    parser.add_argument('--save-path', type=str, default='outdir/models/melanoma/1_30/split_0')
 
     # arguments for ST++
-    parser.add_argument('--reliable-id-path', type=str)
+    parser.add_argument('--reliable-id-path', type=str, default = 'outdir/reliable_ids/melanoma/1_30/split_0')
     parser.add_argument('--plus', dest='plus', default=False, action='store_true',
                         help='whether to use ST++')
+
+    args = parser.parse_args()
 
     #autoparse? bzw use ******LightningCLI*********
 
@@ -72,7 +75,6 @@ def parse_args():
 
 
 def main(args):
-    use_wandb = False
     if use_wandb == True:
         wandb.init(project='ST++', entity='gkeppler')
         wandb.define_metric("step_train")
@@ -90,19 +92,12 @@ def main(args):
     if args.plus and args.reliable_id_path is None:
         exit('Please specify reliable-id-path in ST++.')
 
-    valset = SemiDataset(args.dataset, args.data_root, 'val', None)
-    valloader = DataLoader(valset, batch_size=4 if args.dataset == 'cityscapes' else 1,
-                           shuffle=False, pin_memory=True, num_workers=6, drop_last=False)
-
-    # <====================== Supervised training with labeled images (SupOnly) ======================>
-    print('\n================> Total stage 1/%i: '
-          'Supervised training on labeled images (SupOnly)' % (6 if args.plus else 3))
-
-    trainset = SemiDataset(args.dataset, args.data_root, 'train', args.crop_size, args.labeled_id_path)
-    trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
-    trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                             pin_memory=True, num_workers=6, drop_last=True)
-
+    dataModule = IsicDermoDataModule(
+            root_dir = args.data_root,
+            batch_size = args.batch_size,
+            train_yaml_path=args.train_yaml,
+            test_yaml_path=args.test_yaml,  
+    )
 
     #new pl stuff
     dict_args = vars(args)
@@ -113,11 +108,6 @@ def main(args):
     model = model_zoo[args.model](backbone=args.backbone, nclass=num_classes, **dict2)
 
     head_lr_multiple = 10.0
-    if args.model == 'deeplabv2':
-        assert args.backbone == 'resnet101'
-        model.load_state_dict(torch.load('pretrained/deeplabv2_resnet101_coco_pretrained.pth'))
-        head_lr_multiple = 1.0
-
     #configure  
     #cli = LightningCLI(model, trainloader)
 
@@ -135,8 +125,11 @@ def main(args):
         log_every_n_steps=2,
         #callbacks=[checkpoint_callback], #checkpoint doest save model properly, dont know why -> ch
         gpus=[0])
+    # <====================== Supervised training with labeled images (SupOnly) ======================>
+    print('\n================> Total stage 1/%i: '
+          'Supervised training on labeled images (SupOnly)' % (6 if args.plus else 3))
 
-    Trainer.fit(model, train_dataloaders=trainloader, val_dataloaders=valloader)
+    Trainer.fit(model,datamodule=dataModule)
 
 
     if not args.plus:

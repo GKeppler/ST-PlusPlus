@@ -78,29 +78,29 @@ class IsicDermoDataset(PartiallyLabeledDataset):
             return img, label 
         return img
 
-        sample_img_lst = []
-        label_lst = []
-        trafo_lst = []
-        for transform in self.transforms:
-            im, lbl, trafo = transform(sample_img, label)
-            sample_img_lst.append(im)
-            label_lst.append(lbl)
-            trafo_lst.append(trafo)
+        # sample_img_lst = []
+        # label_lst = []
+        # trafo_lst = []
+        # for transform in self.transforms:
+        #     im, lbl, trafo = transform(sample_img, label)
+        #     sample_img_lst.append(im)
+        #     label_lst.append(lbl)
+        #     trafo_lst.append(trafo)
 
-        if len(sample_img_lst) == 1:
-            sample_img_lst = sample_img_lst[0]
-            label_lst = label_lst[0] if len(label_lst) > 0 else label_lst
-            trafo_lst = trafo_lst[0] if len(trafo_lst) > 0 else trafo_lst
+        # if len(sample_img_lst) == 1:
+        #     sample_img_lst = sample_img_lst[0]
+        #     label_lst = label_lst[0] if len(label_lst) > 0 else label_lst
+        #     trafo_lst = trafo_lst[0] if len(trafo_lst) > 0 else trafo_lst
         
-        # sample_img_lst (optional: labels) (optional: trafos)
-        if not self.return_trafos and not self.labels_available:
-            return sample_img_lst
-        if self.return_trafos and not self.labels_available:
-            return sample_img_lst, trafo_lst
-        if not self.return_trafos and self.labels_available:
-            return sample_img_lst, label_lst
-        if self.return_trafos and self.labels_available:
-            return sample_img_lst, label_lst, trafo_lst
+        # # sample_img_lst (optional: labels) (optional: trafos)
+        # if not self.return_trafos and not self.labels_available:
+        #     return sample_img_lst
+        # if self.return_trafos and not self.labels_available:
+        #     return sample_img_lst, trafo_lst
+        # if not self.return_trafos and self.labels_available:
+        #     return sample_img_lst, label_lst
+        # if self.return_trafos and self.labels_available:
+        #     return sample_img_lst, label_lst, trafo_lst
     
     # def get_samples(self):
     #     return self.indices

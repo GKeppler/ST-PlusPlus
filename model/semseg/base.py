@@ -16,7 +16,7 @@ class BaseNet(pl.LightningModule):
     def add_model_specific_args(parent_parser):
         parser = parent_parser.add_argument_group("BaseNet")
         #initial learing rate
-        parser.add_argument("--lr", type=float, default=0.001)
+        #parser.add_argument("--lr", type=float, default=0.001)
         return parent_parser
 
     def __init__(self, backbone, *args, **kwargs):

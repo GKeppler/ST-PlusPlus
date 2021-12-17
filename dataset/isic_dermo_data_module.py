@@ -21,7 +21,7 @@ class IsicDermoDataModule(PartiallyLabeledLightningDataModule):
         val_transforms=None,
         test_transforms=None,
         return_unlabeled_trafos=False,
-        num_workers=0,
+        num_workers=16,
         pin_memory=False,
     ):
         super().__init__(
