@@ -25,9 +25,8 @@ dataModule = IsicDermoDataModule(
         test_yaml_path="dataset/splits/melanoma/test.yaml",  
 )
 
-test = dataModule.labeled_train_dataset.__getitem__(2)
-test2 = dataModule.test_dataset.__getitem__(2)
-test3 = dataModule.unlabeled_train_dataset.__getitem__(2)                                                                                                                                               
+test = dataModule.train_dataset.__getitem__(2)
+test2 = dataModule.test_dataset.__getitem__(2)                                                                                                                                       
 test4 = dataModule.val_dataset.__getitem__(2)
 
 Trainer = pl.Trainer(

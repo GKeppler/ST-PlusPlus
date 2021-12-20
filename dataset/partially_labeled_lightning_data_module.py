@@ -1,6 +1,5 @@
 from abc import ABC, ABCMeta, abstractmethod
 import logging
-import random
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 # from ALS4L.deep_learning_components.data_processing.augmentations.semantic_segmentation.custom_collate_fcn import (

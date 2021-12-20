@@ -25,7 +25,7 @@ global step_train
 global step_val
 step_train = 0
 step_val = 0
-use_Wandb = True
+use_Wandb = False
 
 def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')

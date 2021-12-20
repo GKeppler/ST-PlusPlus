@@ -31,7 +31,7 @@ class SemiDataset(Dataset):
 
         if mode == 'semi_train':
             with open(split_file_path,'r') as file:
-                split_dict = yaml.load(file, Loader=yaml.FullLoader)
+                split_dict = yaml.load(file, Loader=yaml.FullLoader)["val_split_0"]
                 self.labeled_ids = split_dict["labeled"]
                 if reliable is None:          
                     self.unlabeled_ids = split_dict["unlabeled"]
@@ -44,7 +44,7 @@ class SemiDataset(Dataset):
                     self.labeled_ids * math.ceil(len(self.unlabeled_ids) / len(self.labeled_ids)) + self.unlabeled_ids
         else:
             with open(split_file_path) as file:
-                split_dict = yaml.load(file, Loader=yaml.FullLoader)
+                split_dict = yaml.load(file, Loader=yaml.FullLoader)["val_split_0"]
                 if mode == 'val':
                     self.ids = split_dict["val"]
                 elif mode == 'label':
@@ -66,6 +66,7 @@ class SemiDataset(Dataset):
             base_size = 256#400 if self.name == 'pascal' else 256 if self.name == 'melanoma' else 2048
             img, mask = resize(img, mask, base_size, (0.5, 2.0))
             img, mask = normalize(img, mask)
+            print(img.cpu().numpy().shape)
             return img, mask, id
 
         if self.mode == 'train' or (self.mode == 'semi_train' and id in self.labeled_ids):
