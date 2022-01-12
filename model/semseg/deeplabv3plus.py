@@ -8,7 +8,7 @@ import pytorch_lightning as pl
 
 class DeepLabV3Plus(BaseNet):
     def __init__(self, backbone, nclass, *args, **kwargs):
-        super(DeepLabV3Plus, self).__init__(backbone, *args, **kwargs)
+        super(DeepLabV3Plus, self).__init__(backbone, nclass, *args, **kwargs)
 
         low_level_channels = self.backbone.channels[0]
         high_level_channels = self.backbone.channels[-1]

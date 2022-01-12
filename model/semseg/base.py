@@ -19,13 +19,13 @@ class BaseNet(pl.LightningModule):
         #parser.add_argument("--lr", type=float, default=0.001)
         return parent_parser
 
-    def __init__(self, backbone, *args, **kwargs):
+    def __init__(self, backbone, nclass, *args, **kwargs):
         lr = kwargs.get('lr')
         super(BaseNet, self).__init__()
         backbone_zoo = {'resnet18': resnet18, 'resnet50': resnet50, 'resnet101': resnet101}
         self.backbone_name = backbone
         self.backbone = backbone_zoo[backbone](pretrained=True)
-        self.metric = meanIOU(num_classes=21) # change for dataset
+        self.metric = meanIOU(num_classes=nclass) # change for dataset
         self.criterion = CrossEntropyLoss(ignore_index=255)
         self.previous_best = 0.0
         self.args = kwargs
@@ -36,7 +36,6 @@ class BaseNet(pl.LightningModule):
         x = self.backbone.base_forward(x)[-1]
         x = self.head(x)
         x = F.interpolate(x, (h, w), mode="bilinear", align_corners=True)
-
         return x
 
     def forward(self, x, tta=False):
@@ -72,7 +71,7 @@ class BaseNet(pl.LightningModule):
         return {'loss': loss}
 
     def validation_step(self, batch, batch_idx):
-        img, mask = batch
+        img, mask, id = batch
         pred = self(img)
         self.metric.add_batch(torch.argmax(pred, dim=1).cpu().numpy(), mask.cpu().numpy())
         val_loss = self.metric.evaluate()[-1]

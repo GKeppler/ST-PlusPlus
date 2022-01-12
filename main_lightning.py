@@ -141,12 +141,6 @@ def main(args):
         # <============================= Pseudolabel all unlabeled images =============================>
         print('\n\n\n================> Total stage 2/3: Pseudo labeling all unlabeled images')
 
-
-        # automatically restores model, epoch, step, LR schedulers, apex, etc...
-        checkpoint_callback.best_model_path
-        dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
-        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=6, drop_last=False)
-
         # predict can run out of memory with one gpu and doenst return predicitions on 2 gpus. Try test_step: Trainer.predict() with write_prediction
         stage_2_pl = False
         if stage_2_pl:

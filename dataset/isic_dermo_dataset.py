@@ -14,7 +14,7 @@ class IsicDermoDataset():
         self,
         root_dir: str,
         mode: str,
-        base_size = 256,
+        base_size = 512,
         crop_size = 100,
         labeled_id_list=None,
         unlabeled_id_list=None,
@@ -48,9 +48,9 @@ class IsicDermoDataset():
         if self.mode == 'val' or self.mode == 'label':
             mask = Image.open(os.path.join(self.root_dir, id.split(' ')[1]))
 
-            img, mask = resize(img, mask, self.base_size, (0.5, 2.0))
+            img, mask = resize(img, mask, self.base_size,(1,1))# (0.5, 2.0))
             img, mask = normalize(img, mask)
-            print(img.cpu().numpy().shape)
+            #print(img.cpu().numpy().shape)
             return img, mask, id
 
         if self.mode == 'train' or (self.mode == 'semi_train' and id in self.labeled_id_list):
@@ -75,4 +75,4 @@ class IsicDermoDataset():
 
         img, mask = normalize(img, mask)
 
-        return img, mask
+        return img, mask, 

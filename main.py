@@ -31,7 +31,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')
 
     # basic settings
-    parser.add_argument('--data-root', type=str, default="/lsdf/kit/iai/projects/iai-aida/Daten_Keppler/ISIC_Demo_2017")
+    parser.add_argument('--data-root', type=str, default="/lsdf/kit/iai/projects/iai-aida/Daten_Keppler/ISIC_Demo_2017/train")
     parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes', 'melanoma'], default='melanoma')
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--lr', type=float, default=None)
@@ -243,7 +243,8 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
             optimizer.param_groups[1]["lr"] = lr * 1.0 if args.model == 'deeplabv2' else lr * 10.0
 
             #wandb log with custom step
-            wandb.log({"loss": loss,"step_train":step_train, "epoch": epoch})
+            if use_Wandb:
+                wandb.log({"loss": loss,"step_train":step_train, "epoch": epoch})
             step_train += 1
             tbar.set_description('Loss: %.3f' % (total_loss / (i + 1)))
 

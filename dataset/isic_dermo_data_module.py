@@ -29,6 +29,7 @@ class IsicDermoDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.train_yaml_path = train_yaml_path
         self.test_yaml_path = test_yaml_path
+
         ##transformations not used currently
         # self.train_transforms = train_transforms
         # self.train_transforms_unlabeled = (
@@ -38,7 +39,6 @@ class IsicDermoDataModule(pl.LightningDataModule):
         # )
         # self.val_transforms = val_transforms
         # self.test_transforms = test_transforms
-
 
         self.labeled_train_dataset: IsicDermoDataset = None
         self.unlabeled_train_dataset: IsicDermoDataset = None

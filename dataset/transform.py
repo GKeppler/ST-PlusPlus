@@ -46,7 +46,7 @@ def normalize(img, mask=None):
     return img
 
 
-def resize(img, mask, base_size, ratio_range):
+def resize_old(img, mask, base_size, ratio_range):
     w, h = img.size
     long_side = random.randint(int(base_size * ratio_range[0]), int(base_size * ratio_range[1]))
 
@@ -59,6 +59,19 @@ def resize(img, mask, base_size, ratio_range):
 
     img = img.resize((ow, oh), Image.BILINEAR)
     mask = mask.resize((ow, oh), Image.NEAREST)
+    return img, mask
+
+#center crop to base_size
+def resize(img, mask, base_size, ratio_range):
+    w, h = img.size
+
+    left = (w - base_size)/2
+    top = (h - base_size)/2
+    right = (w + base_size)/2
+    bottom = (h + base_size)/2
+
+    img = img.crop((left, top, right, bottom))
+    mask = mask.crop((left, top, right, bottom))
     return img, mask
 
 
