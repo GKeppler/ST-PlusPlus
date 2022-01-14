@@ -98,6 +98,13 @@ def main(args):
 
     best_model, checkpoints = train(model, trainloader, valloader, criterion, optimizer, args)
 
+
+    # <====================== Test supervised model on testset (SupOnly) ======================>
+    testset = SemiDataset(args.dataset, args.data_root, 'test', args.crop_size, args.split_file_path)
+    testloader = DataLoader(testset,  1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+
+    test(best_model,testloader)
+
     """
         ST framework without selective re-training
     """
@@ -383,6 +390,47 @@ def label(model, dataloader, args):
             pred.save('%s/%s' % (args.pseudo_mask_path, os.path.basename(id[0].split(' ')[1])))
 
             tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
+
+def test(model, dataloader, args):
+    metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19)
+    model.eval()
+    tbar = tqdm(dataloader)
+    #set i for sample images
+    i = 0
+    wandb_iamges = []
+    torch.cuda.empty_cache()
+    with torch.no_grad():
+        for img, mask, _ in tbar:
+            if args.dataset == 'melanoma': mask = mask.clip(max=1)
+            i = i + 1
+            img = img.cuda()
+            pred = model(img)
+            pred = torch.argmax(pred, dim=1)
+
+            metric.add_batch(pred.cpu().numpy(), mask.numpy())
+            mIOU = metric.evaluate()[-1]
+            if use_Wandb:
+                if i <= 10:
+                    #wandb.log({"img": [wandb.Image(img, caption="img")]})
+                    #wandb.log({"mask": [wandb.Image(pred.cpu().numpy(), caption="mask")]})
+                    class_lables = dict((el, "something") for el in list(range(21)))
+                    class_lables.update({255: "boarder"})
+                    class_lables.update({0: "nothing"})
+                    wandb_iamge = wandb.Image(cv2.resize(np.moveaxis(np.squeeze(img.cpu().numpy(), axis=0), 0, -1), dsize=(100, 100), interpolation=cv2.INTER_NEAREST), masks={
+                        "predictions": {
+                            "mask_data": cv2.resize(np.squeeze(pred.cpu().numpy(), axis=0), dsize=(100, 100), interpolation=cv2.INTER_NEAREST),
+                            "class_labels": class_lables
+                        },
+                        "ground_truth": {
+                            "mask_data": cv2.resize(np.squeeze(mask.numpy(), axis=0), dsize=(100, 100), interpolation=cv2.INTER_NEAREST),
+                            "class_labels": class_lables
+                        }
+                    })
+                    wandb_iamges.append(wandb_iamge)
+            tbar.set_description('mean mIOU: %.2f' % (mIOU * 100.0))
+        if use_Wandb:
+            wandb.log({"Pictures": wandb_iamges})
+            wandb.log({"test mIOU": mIOU})
 
 
 if __name__ == '__main__':
