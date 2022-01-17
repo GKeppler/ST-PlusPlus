@@ -35,7 +35,7 @@ def parse_args():
     parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes', 'melanoma'], default='melanoma')
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--lr', type=float, default=None)
-    parser.add_argument('--epochs', type=int, default=5)
+    parser.add_argument('--epochs', type=int, default=2)
     parser.add_argument('--crop-size', type=int, default=None)
     parser.add_argument('--backbone', type=str, choices=['resnet18', 'resnet50', 'resnet101'], default='resnet50')
     parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2', 'unet'],
@@ -50,7 +50,7 @@ def parse_args():
 
     # arguments for ST++
     parser.add_argument('--reliable-id-path', type=str, default = 'outdir/reliable_ids/melanoma/1_30/split_0')
-    parser.add_argument('--plus', dest='plus', default=True, action='store_true',
+    parser.add_argument('--plus', dest='plus', default=False, action='store_true',
                         help='whether to use ST++')
 
     args = parser.parse_args()
@@ -75,7 +75,7 @@ def main(args):
     if args.plus and args.reliable_id_path is None:
         exit('Please specify reliable-id-path in ST++.')
 
-    criterion = CrossEntropyLoss(ignore_index=255)
+    criterion = CrossEntropyLoss()#ignore_index=255) 255 is white is melanoma
     ## changed crop from None to args.crop_size
     valset = SemiDataset(args.dataset, args.data_root, 'val', args.crop_size, args.split_file_path)
     valloader = DataLoader(valset, batch_size=4 if args.dataset == 'cityscapes' else 1,
@@ -390,7 +390,7 @@ def label(model, dataloader, args):
 
             metric.add_batch(pred.numpy(), mask.numpy())
             mIOU = metric.evaluate()[-1]
-
+            
             pred = Image.fromarray(pred.squeeze(0).numpy().astype(np.uint8), mode='P')
             pred.putpalette(cmap)
 
@@ -437,7 +437,7 @@ def test(model, dataloader, args):
                     wandb_iamges.append(wandb_iamge)
         if use_Wandb:
             wandb.log({"Pictures": wandb_iamges})
-            wandb.log({"test mIOU": mIOU})
+            wandb.log({"test mIOU": mIOU,"test mDICE": mDICE,"test overall_acc": overall_acc})
 
 
 if __name__ == '__main__':

@@ -105,4 +105,7 @@ def color_map(dataset='pascal'):
         cmap[17] = np.array([0,  0, 230])
         cmap[18] = np.array([119, 11, 32])
 
+    elif dataset == 'melanoma': 
+        cmap[1] = np.array([255, 255, 255])
+
     return cmap
