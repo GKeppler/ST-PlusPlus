@@ -9,7 +9,7 @@ from torchvision import transforms
 import yaml
 
 class SemiDataset(Dataset):
-    def __init__(self, name, root, mode, size, split_file_path=None, pseudo_mask_path=None,reliable=None):
+    def __init__(self, name, root, mode, size, split_file_path=None, pseudo_mask_path=None,reliable=None,val_split="val_split_0"):
         """
         :param name: dataset name, pascal, melanoma or cityscapes
         :param root: root path of the dataset.
@@ -31,7 +31,7 @@ class SemiDataset(Dataset):
 
         if mode == 'semi_train':
             with open(split_file_path,'r') as file:
-                split_dict = yaml.load(file, Loader=yaml.FullLoader)["val_split_0"]
+                split_dict = yaml.load(file, Loader=yaml.FullLoader)[val_split]
                 self.labeled_ids = split_dict["labeled"]
                 if reliable is None:          
                     self.unlabeled_ids = split_dict["unlabeled"]
@@ -47,7 +47,7 @@ class SemiDataset(Dataset):
                 self.ids = yaml.load(file, Loader=yaml.FullLoader)
         else:
             with open(split_file_path) as file:
-                split_dict = yaml.load(file, Loader=yaml.FullLoader)["val_split_0"]
+                split_dict = yaml.load(file, Loader=yaml.FullLoader)[val_split]
                 if mode == 'val':
                     self.ids = split_dict["val"]
                 elif mode == 'label':

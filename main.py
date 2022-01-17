@@ -4,7 +4,7 @@ from model.semseg.deeplabv3plus import DeepLabV3Plus
 from model.semseg.pspnet import PSPNet
 from model.semseg.base import BaseNet
 from model.semseg.unet import Unet
-from utils import count_params, meanIOU, color_map
+from utils import count_params, meanIOU, color_map, mulitmetrics
 
 import argparse
 from copy import deepcopy
@@ -35,22 +35,22 @@ def parse_args():
     parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes', 'melanoma'], default='melanoma')
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--lr', type=float, default=None)
-    parser.add_argument('--epochs', type=int, default=1)
+    parser.add_argument('--epochs', type=int, default=5)
     parser.add_argument('--crop-size', type=int, default=None)
     parser.add_argument('--backbone', type=str, choices=['resnet18', 'resnet50', 'resnet101'], default='resnet50')
     parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2', 'unet'],
                         default='deeplabv3plus')
+    parser.add_argument('--val-split', type=str, default='val_split_0')                    
 
     # semi-supervised settings
     parser.add_argument('--split-file-path', type=str, default="dataset/splits/melanoma/1_30/split_0/split_test.yaml")
     parser.add_argument('--test-file-path', type=str, default="dataset/splits/melanoma/test_sample.yaml")
-    parser.add_argument('--pseudo-mask-path', type=str, default='outdir/pseudo_masks/melanoma/1_30/split_0')
-
+    parser.add_argument('--pseudo-mask-path', type=str, default='outdir/pseudo_masks/melanoma/1_30/split_0')   
     parser.add_argument('--save-path', type=str, default='outdir/models/melanoma/1_30/split_0')
 
     # arguments for ST++
     parser.add_argument('--reliable-id-path', type=str, default = 'outdir/reliable_ids/melanoma/1_30/split_0')
-    parser.add_argument('--plus', dest='plus', default=False, action='store_true',
+    parser.add_argument('--plus', dest='plus', default=True, action='store_true',
                         help='whether to use ST++')
 
     args = parser.parse_args()
@@ -192,7 +192,12 @@ def main(args):
 
     model, optimizer = init_basic_elems(args)
 
-    train(model, trainloader, valloader, criterion, optimizer, args)
+    best_model = train(model, trainloader, valloader, criterion, optimizer, args)
+
+    # <====================== Test supervised model on testset (Re-trained) ======================>
+    print('\n\n\n================> Test supervised model on testset (Re-trained)')
+
+    test(best_model,testloader,args)
 
     wandb.finish()
 
@@ -352,25 +357,18 @@ def select_reliable(models, dataloader, args):
             reliability = sum(mIOU) / len(mIOU)
             id_to_reliability.append((id[0], reliability))
 
-    # id_to_reliability.sort(key=lambda elem: elem[1], reverse=True)
-    # with open(os.path.join(args.reliable_id_path, 'reliable_ids.txt'), 'w') as f:
-    #     for elem in id_to_reliability[:len(id_to_reliability) // 2]:
-    #         f.write(elem[0] + '\n')
-    # with open(os.path.join(args.reliable_id_path, 'unreliable_ids.txt'), 'w') as f:
-    #     for elem in id_to_reliability[len(id_to_reliability) // 2:]:
-    #         f.write(elem[0] + '\n')
 
-    #load lableed filelist
     labeled_ids = []
     with open(args.split_file_path,'r') as file:
         split_dict = yaml.load(file, Loader=yaml.FullLoader)
-        labeled_ids = split_dict["labeled"]
+        labeled_ids = split_dict[args.val_split]["labeled"]
 
     yaml_dict = dict(
         labeled=labeled_ids,
         reliable=[i[0] for i in id_to_reliability[:len(id_to_reliability) // 2]],
         unreliable=[i[0] for i in id_to_reliability[len(id_to_reliability) // 2:]]
         )
+    yaml_dict[args.val_split] = yaml_dict
     #save to yaml
     with open(os.path.join(args.reliable_id_path, 'reliable_ids.yaml'), 'w+') as outfile:
         yaml.dump(yaml_dict, outfile, default_flow_style=False)
@@ -401,7 +399,7 @@ def label(model, dataloader, args):
             tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
 
 def test(model, dataloader, args):
-    metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19)
+    metric = mulitmetrics(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19)
     model.eval()
     tbar = tqdm(dataloader)
     #set i for sample images
@@ -417,8 +415,8 @@ def test(model, dataloader, args):
             pred = torch.argmax(pred, dim=1)
 
             metric.add_batch(pred.cpu().numpy(), mask.numpy())
-            mIOU = metric.evaluate()[-1]
-            tbar.set_description('test mIOU: %.2f' % (mIOU * 100.0))
+            overall_acc, mIOU, mDICE = metric.evaluate()
+            tbar.set_description('test mIOU: %.2f, mDICE: %.2f,overall_acc: %.2f' % (mIOU*100.0, mDICE*100.0,overall_acc*100.0))
             if use_Wandb:
                 if i <= 10:
                     #wandb.log({"img": [wandb.Image(img, caption="img")]})
