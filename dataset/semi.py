@@ -42,6 +42,9 @@ class SemiDataset(Dataset):
                 #multiply label to match the cound of unlabled
                 self.ids = \
                     self.labeled_ids * math.ceil(len(self.unlabeled_ids) / len(self.labeled_ids)) + self.unlabeled_ids
+        elif mode =='test':
+            with open(split_file_path,'r') as file:
+                self.ids = yaml.load(file, Loader=yaml.FullLoader)
         else:
             with open(split_file_path) as file:
                 split_dict = yaml.load(file, Loader=yaml.FullLoader)["val_split_0"]
@@ -61,7 +64,7 @@ class SemiDataset(Dataset):
         id = self.ids[item]
         img = Image.open(os.path.join(self.root, id.split(' ')[0]))
 
-        if self.mode == 'val' or self.mode == 'label':
+        if self.mode == 'val' or self.mode == 'label'  or self.mode == 'test':
             mask = Image.open(os.path.join(self.root, id.split(' ')[1]))
             base_size = 256#400 if self.name == 'pascal' else 256 if self.name == 'melanoma' else 2048
             img, mask = resize(img, mask, base_size, (0.5, 2.0))
