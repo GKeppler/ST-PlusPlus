@@ -31,18 +31,19 @@ def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')
 
     # basic settings
-    parser.add_argument('--data-root', type=str, default="/lsdf/kit/iai/projects/iai-aida/Daten_Keppler/ISIC_Demo_2017/train")
+    parser.add_argument('--data-root', type=str, default="/lsdf/kit/iai/projects/iai-aida/Daten_Keppler/ISIC_Demo_2017")
     parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes', 'melanoma'], default='melanoma')
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--lr', type=float, default=None)
-    parser.add_argument('--epochs', type=int, default=20)
+    parser.add_argument('--epochs', type=int, default=1)
     parser.add_argument('--crop-size', type=int, default=None)
     parser.add_argument('--backbone', type=str, choices=['resnet18', 'resnet50', 'resnet101'], default='resnet50')
     parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2', 'unet'],
                         default='deeplabv3plus')
 
     # semi-supervised settings
-    parser.add_argument('--split-file-path', type=str, default="dataset/splits/melanoma/1_30/split_0/split.yaml")
+    parser.add_argument('--split-file-path', type=str, default="dataset/splits/melanoma/1_30/split_0/split_test.yaml")
+    parser.add_argument('--test-file-path', type=str, default="dataset/splits/melanoma/test_sample.yaml")
     parser.add_argument('--pseudo-mask-path', type=str, default='outdir/pseudo_masks/melanoma/1_30/split_0')
 
     parser.add_argument('--save-path', type=str, default='outdir/models/melanoma/1_30/split_0')
@@ -100,10 +101,11 @@ def main(args):
 
 
     # <====================== Test supervised model on testset (SupOnly) ======================>
-    testset = SemiDataset(args.dataset, args.data_root, 'test', args.crop_size, args.split_file_path)
-    testloader = DataLoader(testset,  1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+    print('\n\n\n================> Test supervised model on testset (SupOnly)')
+    testset = SemiDataset(args.dataset, args.data_root, 'test', args.crop_size, args.test_file_path)
+    testloader = DataLoader(testset, 1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
-    test(best_model,testloader)
+    test(best_model,testloader,args)
 
     """
         ST framework without selective re-training
@@ -112,7 +114,7 @@ def main(args):
         # <============================= Pseudo label all unlabeled images =============================>
         print('\n\n\n================> Total stage 2/3: Pseudo labeling all unlabeled images')
 
-        dataset = SemiDataset(args.dataset, args.data_root, 'label', None, args.split_file_path)
+        dataset = SemiDataset(args.dataset, args.data_root, 'label', args.crop_size, args.split_file_path)
         dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
         label(best_model, dataloader, args)
@@ -128,7 +130,12 @@ def main(args):
 
         model, optimizer = init_basic_elems(args)
 
-        train(model, trainloader, valloader, criterion, optimizer, args)
+        best_model = train(model, trainloader, valloader, criterion, optimizer, args)
+
+            # <====================== Test supervised model on testset (SupOnly) ======================>
+        print('\n\n\n================> Test supervised model on testset (Re-trained)')
+
+        test(best_model,testloader,args)
 
         return
 
@@ -138,7 +145,7 @@ def main(args):
     # <===================================== Select Reliable IDs =====================================>
     print('\n\n\n================> Total stage 2/6: Select reliable images for the 1st stage re-training')
 
-    dataset = SemiDataset(args.dataset, args.data_root, 'label', None, args.split_file_path)
+    dataset = SemiDataset(args.dataset, args.data_root, 'label', args.crop_size, args.split_file_path)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     select_reliable(checkpoints, dataloader, args)
@@ -147,7 +154,7 @@ def main(args):
     print('\n\n\n================> Total stage 3/6: Pseudo labeling reliable images')
 
     cur_unlabeled_id_path = os.path.join(args.reliable_id_path, 'reliable_ids.yaml')
-    dataset = SemiDataset(args.dataset, args.data_root, 'label', None, cur_unlabeled_id_path,None,True)
+    dataset = SemiDataset(args.dataset, args.data_root, 'label', args.crop_size, cur_unlabeled_id_path,None,True)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     label(best_model, dataloader, args)
@@ -170,7 +177,7 @@ def main(args):
     print('\n\n\n================> Total stage 5/6: Pseudo labeling unreliable images')
 
     cur_unlabeled_id_path = os.path.join(args.reliable_id_path, 'reliable_ids.yaml')
-    dataset = SemiDataset(args.dataset, args.data_root, 'label', None, cur_unlabeled_id_path,None,False)
+    dataset = SemiDataset(args.dataset, args.data_root, 'label', args.crop_size, cur_unlabeled_id_path,None,False)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     label(best_model, dataloader, args)
@@ -292,7 +299,6 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                             }
                         })
                         wandb_iamges.append(wandb_iamge)
-                tbar.set_description('mean mIOU: %.2f' % (mIOU * 100.0))
                 step_val += 1
 
                 tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
@@ -330,6 +336,7 @@ def select_reliable(models, dataloader, args):
 
     with torch.no_grad():
         for img, mask, id in tbar:
+            if args.dataset == 'melanoma': mask = mask.clip(max=1)
             img = img.cuda()
 
             preds = []
@@ -378,6 +385,7 @@ def label(model, dataloader, args):
 
     with torch.no_grad():
         for img, mask, id in tbar:
+            if args.dataset == 'melanoma': mask = mask.clip(max=1) #clips max value to 1: 255 to 1
             img = img.cuda()
             pred = model(img, True)
             pred = torch.argmax(pred, dim=1).cpu()
@@ -402,7 +410,7 @@ def test(model, dataloader, args):
     torch.cuda.empty_cache()
     with torch.no_grad():
         for img, mask, _ in tbar:
-            if args.dataset == 'melanoma': mask = mask.clip(max=1)
+            if args.dataset == 'melanoma': mask = mask.clip(max=1) #clips max value to 1: 255 to 1
             i = i + 1
             img = img.cuda()
             pred = model(img)
@@ -410,6 +418,7 @@ def test(model, dataloader, args):
 
             metric.add_batch(pred.cpu().numpy(), mask.numpy())
             mIOU = metric.evaluate()[-1]
+            tbar.set_description('test mIOU: %.2f' % (mIOU * 100.0))
             if use_Wandb:
                 if i <= 10:
                     #wandb.log({"img": [wandb.Image(img, caption="img")]})
@@ -428,7 +437,6 @@ def test(model, dataloader, args):
                         }
                     })
                     wandb_iamges.append(wandb_iamge)
-            tbar.set_description('mean mIOU: %.2f' % (mIOU * 100.0))
         if use_Wandb:
             wandb.log({"Pictures": wandb_iamges})
             wandb.log({"test mIOU": mIOU})

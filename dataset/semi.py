@@ -1,4 +1,4 @@
-from dataset.transform import crop, hflip, normalize, resize, blur, cutout
+from dataset.transform import crop, hflip, normalize, resize, blur, cutout, resize_crop
 
 import math
 import os
@@ -66,10 +66,9 @@ class SemiDataset(Dataset):
 
         if self.mode == 'val' or self.mode == 'label'  or self.mode == 'test':
             mask = Image.open(os.path.join(self.root, id.split(' ')[1]))
-            base_size = 256#400 if self.name == 'pascal' else 256 if self.name == 'melanoma' else 2048
-            img, mask = resize(img, mask, base_size, (0.5, 2.0))
+            img, mask = resize_crop(img, mask, self.size)
             img, mask = normalize(img, mask)
-            print(img.cpu().numpy().shape)
+            #print(img.cpu().numpy().shape)
             return img, mask, id
 
         if self.mode == 'train' or (self.mode == 'semi_train' and id in self.labeled_ids):
