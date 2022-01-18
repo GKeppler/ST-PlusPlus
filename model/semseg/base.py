@@ -25,8 +25,8 @@ class BaseNet(pl.LightningModule):
         backbone_zoo = {'resnet18': resnet18, 'resnet50': resnet50, 'resnet101': resnet101}
         self.backbone_name = backbone
         self.backbone = backbone_zoo[backbone](pretrained=True)
-        self.metric = meanIOU(num_classes=nclass) # change for dataset
-        self.criterion = CrossEntropyLoss(ignore_index=255)
+        self.metric = meanIOU(num_classes=nclass)
+        self.criterion = CrossEntropyLoss()#ignore_index=255)
         self.previous_best = 0.0
         self.args = kwargs
 

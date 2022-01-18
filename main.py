@@ -25,7 +25,6 @@ global step_train
 global step_val
 step_train = 0
 step_val = 0
-use_Wandb = False
 
 def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')
@@ -39,27 +38,31 @@ def parse_args():
     parser.add_argument('--crop-size', type=int, default=None)
     parser.add_argument('--backbone', type=str, choices=['resnet18', 'resnet50', 'resnet101'], default='resnet50')
     parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2', 'unet'],
-                        default='deeplabv3plus')
-    parser.add_argument('--val-split', type=str, default='val_split_0')                    
+                        default='unet')
+    parser.add_argument('--val-split', type=str, default='val_split_0') #need to implement in Dataloader, crrently not working                   
 
     # semi-supervised settings
-    parser.add_argument('--split-file-path', type=str, default="dataset/splits/melanoma/1_30/split_0/split_test.yaml")
-    parser.add_argument('--test-file-path', type=str, default="dataset/splits/melanoma/test_sample.yaml")
-    parser.add_argument('--pseudo-mask-path', type=str, default='outdir/pseudo_masks/melanoma/1_30/split_0')   
-    parser.add_argument('--save-path', type=str, default='outdir/models/melanoma/1_30/split_0')
+    parser.add_argument('--split', type=str, default="1_30")
+    parser.add_argument('--shuffle', type=int, default=0)
+    #these are derived from the above split, shuffle and dataset. They dont need to be set
+    parser.add_argument('--split-file-path', type=str, default=None)#"dataset/splits/melanoma/1_30/split_0/split_sample.yaml")
+    parser.add_argument('--test-file-path', type=str, default=None)#"dataset/splits/melanoma/test_sample.yaml")
+    parser.add_argument('--pseudo-mask-path', type=str, default=None)   
+    parser.add_argument('--save-path', type=str, default=None)
+    parser.add_argument('--reliable-id-path', type=str, default=None)
 
-    # arguments for ST++
-    parser.add_argument('--reliable-id-path', type=str, default = 'outdir/reliable_ids/melanoma/1_30/split_0')
-    parser.add_argument('--plus', dest='plus', default=False, action='store_true',
+    parser.add_argument('--plus', dest='plus', default=True, action='store_true',
                         help='whether to use ST++')
+    parser.add_argument('--use-wandb', default=False, help='whether to use WandB for logging')
 
     args = parser.parse_args()
     return args
 
 
 def main(args):
-    if use_Wandb:
+    if args.use_wandb:
         wandb.init(project='ST++', entity='gkeppler')
+        wandb.run.name = args.dataset+" "+args.split_file_path.split("/")[-3]+(" ST++" if args.plus else " ST")
         wandb.define_metric("step_train")
         wandb.define_metric("step_val")
         wandb.define_metric("step_epoch")
@@ -262,7 +265,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
             optimizer.param_groups[1]["lr"] = lr * 1.0 if args.model == 'deeplabv2' else lr * 10.0
 
             #wandb log with custom step
-            if use_Wandb:
+            if args.use_wandb:
                 wandb.log({"loss": loss,"step_train":step_train, "epoch": epoch})
             step_train += 1
             tbar.set_description('Loss: %.3f' % (total_loss / (i + 1)))
@@ -285,7 +288,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
                 mIOU = metric.evaluate()[-1]
-                if use_Wandb:
+                if args.use_wandb:
                     wandb.log({"mIOU": mIOU,"step_val":step_val})
                     if i <= 10:
                         #wandb.log({"img": [wandb.Image(img, caption="img")]})
@@ -307,7 +310,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 step_val += 1
 
                 tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
-        if use_Wandb:
+        if args.use_wandb:
             wandb.log({"Pictures": wandb_iamges,"step_epoch":epoch})
             wandb.log({"final mIOU": mIOU})
         mIOU *= 100.0
@@ -363,12 +366,12 @@ def select_reliable(models, dataloader, args):
         split_dict = yaml.load(file, Loader=yaml.FullLoader)
         labeled_ids = split_dict[args.val_split]["labeled"]
 
-    yaml_dict = dict(
+    yaml_dict = dict()
+    yaml_dict[args.val_split] = dict(
         labeled=labeled_ids,
         reliable=[i[0] for i in id_to_reliability[:len(id_to_reliability) // 2]],
         unreliable=[i[0] for i in id_to_reliability[len(id_to_reliability) // 2:]]
         )
-    yaml_dict[args.val_split] = yaml_dict
     #save to yaml
     with open(os.path.join(args.reliable_id_path, 'reliable_ids.yaml'), 'w+') as outfile:
         yaml.dump(yaml_dict, outfile, default_flow_style=False)
@@ -417,7 +420,7 @@ def test(model, dataloader, args):
             metric.add_batch(pred.cpu().numpy(), mask.numpy())
             overall_acc, mIOU, mDICE = metric.evaluate()
             tbar.set_description('test mIOU: %.2f, mDICE: %.2f,overall_acc: %.2f' % (mIOU*100.0, mDICE*100.0,overall_acc*100.0))
-            if use_Wandb:
+            if args.use_wandb:
                 if i <= 10:
                     #wandb.log({"img": [wandb.Image(img, caption="img")]})
                     #wandb.log({"mask": [wandb.Image(pred.cpu().numpy(), caption="mask")]})
@@ -435,7 +438,7 @@ def test(model, dataloader, args):
                         }
                     })
                     wandb_iamges.append(wandb_iamge)
-        if use_Wandb:
+        if args.use_wandb:
             wandb.log({"Pictures": wandb_iamges})
             wandb.log({"test mIOU": mIOU,"test mDICE": mDICE,"test overall_acc": overall_acc})
 
@@ -446,11 +449,22 @@ if __name__ == '__main__':
     if args.lr is None:
         args.lr = 0.001
     if args.epochs is None:
-        args.epochs = {'pascal': 80, 'cityscapes': 240, 'melanoma': 100}[args.dataset]
+        args.epochs = {'pascal': 80, 'cityscapes': 240, 'melanoma': 80}[args.dataset]
     if args.lr is None:
         args.lr = {'pascal': 0.001, 'cityscapes': 0.004, 'melanoma': 0.001}[args.dataset] / 16 * args.batch_size
     if args.crop_size is None:
-        args.crop_size = {'pascal': 321, 'cityscapes': 721, 'melanoma': 256}[args.dataset] #'pascal': 321,
+        args.crop_size = {'pascal': 321, 'cityscapes': 721, 'melanoma': 256}[args.dataset]
+
+    if args.split_file_path is None:   
+        args.split_file_path = f"dataset/splits/{args.dataset}/{args.split}/split_{args.shuffle}/split.yaml"
+    if args.test_file_path is None:   
+        args.test_file_path = f"dataset/splits/{args.dataset}/test.yaml"
+    if args.pseudo_mask_path is None:   
+        args.pseudo_mask_path = f"outdir/pseudo_masks/{args.dataset}/{args.split}/split_{args.shuffle}"
+    if args.save_path is None:   
+        args.save_path = f"outdir/models/{args.dataset}/{args.split}/split_{args.shuffle}"
+    if args.reliable_id_path is None:   
+        args.reliable_id_path = f"outdir/reliable_ids/{args.dataset}/{args.split}/split_{args.shuffle}"
     print()
     print(args)
 

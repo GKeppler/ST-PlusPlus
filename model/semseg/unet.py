@@ -14,12 +14,9 @@ from torch.utils.data.distributed import DistributedSampler
 
 import pytorch_lightning as pl
 
-#from dataset import DirDataset
-
-
 class Unet(BaseNet):
     def __init__(self, backbone, nclass, *args, **kwargs):
-        super(Unet, self).__init__(backbone, *args, **kwargs)
+        super(Unet, self).__init__(backbone, nclass, *args, **kwargs)
         #self.hparams = hparams
 
         self.n_channels = 3 #hparams.n_channels
@@ -37,8 +34,8 @@ class Unet(BaseNet):
         self.up4 = Up(128, 64, self.bilinear)
         self.outc = OutConv(64, self.n_classes)
 
-    def base_forward(self, x):
-        
+    def forward(self, x, tta = False):
+        # Test time Aufmentation
         #replace down with resnet backbone
 
         x1 = self.inc(x)
