@@ -6,4 +6,8 @@ lightning_logs/*
 model/semseg/__pycache__/*
 outdir/*
 model_checkpoints/*
-datasets/__pycache__/*
+dataset/__pycache__/*
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]

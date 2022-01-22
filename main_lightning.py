@@ -20,7 +20,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, base
 from tqdm import tqdm
 import wandb
-from pytorch_lightning.utilities.cli import LightningCLI
+#from pytorch_lightning.utilities.cli import LightningCLI
 from dataset.isic_dermo_data_module import (
     IsicDermoDataModule,
 )
