@@ -4,7 +4,7 @@ from model.semseg.deeplabv3plus import DeepLabV3Plus
 from model.semseg.pspnet import PSPNet
 from model.semseg.base import BaseNet
 from model.semseg.unet import Unet
-from utils import count_params, meanIOU, color_map, mulitmetrics
+from utils import count_params, meanIOU, color_map
 
 import argparse
 from copy import deepcopy
@@ -17,8 +17,6 @@ from torch.optim import SGD
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import wandb
-import cv2
-import yaml
 
 MODE = None
 global step_train
@@ -26,43 +24,41 @@ global step_val
 step_train = 0
 step_val = 0
 
+# changed default to melanoma
 def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')
 
     # basic settings
-    parser.add_argument('--data-root', type=str, default="/lsdf/kit/iai/projects/iai-aida/Daten_Keppler/ISIC_Demo_2017")
+    parser.add_argument('--data-root', type=str, default="/home/kit/stud/uwdus/Masterthesis/data/ISIC_Demo_2017")
     parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes', 'melanoma'], default='melanoma')
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--lr', type=float, default=None)
-    parser.add_argument('--epochs', type=int, default=80)
+    parser.add_argument('--epochs', type=int, default=1)
     parser.add_argument('--crop-size', type=int, default=None)
     parser.add_argument('--backbone', type=str, choices=['resnet18', 'resnet50', 'resnet101'], default='resnet50')
     parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2', 'unet'],
-                        default='unet')
-    parser.add_argument('--val-split', type=str, default='val_split_0') #need to implement in Dataloader, crrently not working                   
+                        default='deeplabv3plus')
 
     # semi-supervised settings
-    parser.add_argument('--split', type=str, default="1_30")
-    parser.add_argument('--shuffle', type=int, default=0)
-    #these are derived from the above split, shuffle and dataset. They dont need to be set
-    parser.add_argument('--split-file-path', type=str, default=None)#"dataset/splits/melanoma/1_30/split_0/split_sample.yaml")
-    parser.add_argument('--test-file-path', type=str, default=None)#"dataset/splits/melanoma/test_sample.yaml")
-    parser.add_argument('--pseudo-mask-path', type=str, default=None)   
-    parser.add_argument('--save-path', type=str, default=None)
-    parser.add_argument('--reliable-id-path', type=str, default=None)
+    parser.add_argument('--labeled-id-path', type=str, default="dataset/splits/melanoma/1_8/split_0/labeled.txt")
+    parser.add_argument('--unlabeled-id-path', type=str, default='dataset/splits/melanoma/1_8/split_0/unlabeled.txt')
+    parser.add_argument('--pseudo-mask-path', type=str, default='outdir/pseudo_masks/melanoma/1_8/split_0')
 
-    parser.add_argument('--plus', dest='plus', default=True, action='store_true',
+    parser.add_argument('--save-path', type=str, default='outdir/models/melanoma/1_8/split_0')
+
+    # arguments for ST++
+    parser.add_argument('--reliable-id-path', type=str)
+    parser.add_argument('--plus', dest='plus', default=False, action='store_true',
                         help='whether to use ST++')
-    parser.add_argument('--use-wandb', default=False, help='whether to use WandB for logging')
 
     args = parser.parse_args()
     return args
 
 
 def main(args):
-    if args.use_wandb:
+    use_Wandb = True
+    if use_Wandb:
         wandb.init(project='ST++', entity='gkeppler')
-        wandb.run.name = args.dataset+" "+args.split_file_path.split("/")[-3]+(" ST++" if args.plus else " ST")
         wandb.define_metric("step_train")
         wandb.define_metric("step_val")
         wandb.define_metric("step_epoch")
@@ -71,6 +67,7 @@ def main(args):
         wandb.define_metric("mIOU", step_metric="step_val")
 
         wandb.config.update(args)
+
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
     if not os.path.exists(args.pseudo_mask_path):
@@ -78,9 +75,9 @@ def main(args):
     if args.plus and args.reliable_id_path is None:
         exit('Please specify reliable-id-path in ST++.')
 
-    criterion = CrossEntropyLoss()#ignore_index=255) 255 is white is melanoma
-    ## changed crop from None to args.crop_size
-    valset = SemiDataset(args.dataset, args.data_root, 'val', args.crop_size, args.split_file_path)
+    criterion = CrossEntropyLoss(ignore_index=255)
+
+    valset = SemiDataset(args.dataset, args.data_root, 'val', args.crop_size)
     valloader = DataLoader(valset, batch_size=4 if args.dataset == 'cityscapes' else 1,
                            shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
@@ -88,27 +85,16 @@ def main(args):
     print('\n================> Total stage 1/%i: '
           'Supervised training on labeled images (SupOnly)' % (6 if args.plus else 3))
 
-    global MODE
-    MODE = 'train'
-
-    trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.split_file_path)
+    trainset = SemiDataset(args.dataset, args.data_root, 'train', args.crop_size, args.labeled_id_path)
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
     subset_indices = list(range(10))
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                             pin_memory=True, num_workers=16, drop_last=True)#,sampler=torch.utils.data.SubsetRandomSampler(subset_indices))
+                             pin_memory=True, num_workers=4, drop_last=True)#,sampler=torch.utils.data.SubsetRandomSampler(subset_indices))
 
     model, optimizer = init_basic_elems(args)
     print('\nParams: %.1fM' % count_params(model))
 
     best_model, checkpoints = train(model, trainloader, valloader, criterion, optimizer, args)
-
-
-    # <====================== Test supervised model on testset (SupOnly) ======================>
-    print('\n\n\n================> Test supervised model on testset (SupOnly)')
-    testset = SemiDataset(args.dataset, args.data_root, 'test', args.crop_size, args.test_file_path)
-    testloader = DataLoader(testset, 1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
-
-    test(best_model,testloader,args)
 
     """
         ST framework without selective re-training
@@ -117,7 +103,7 @@ def main(args):
         # <============================= Pseudo label all unlabeled images =============================>
         print('\n\n\n================> Total stage 2/3: Pseudo labeling all unlabeled images')
 
-        dataset = SemiDataset(args.dataset, args.data_root, 'label', args.crop_size, args.split_file_path)
+        dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
         dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
         label(best_model, dataloader, args)
@@ -127,18 +113,14 @@ def main(args):
 
         MODE = 'semi_train'
 
-        trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.split_file_path, args.pseudo_mask_path)
+        trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
+                               args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
         trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                                 pin_memory=True, num_workers=16, drop_last=True)
+                                 pin_memory=True, num_workers=4, drop_last=True)
 
         model, optimizer = init_basic_elems(args)
 
-        best_model = train(model, trainloader, valloader, criterion, optimizer, args)
-
-            # <====================== Test supervised model on testset (SupOnly) ======================>
-        print('\n\n\n================> Test supervised model on testset (Re-trained)')
-
-        test(best_model,testloader,args)
+        train(model, trainloader, valloader, criterion, optimizer, args)
 
         return
 
@@ -148,7 +130,7 @@ def main(args):
     # <===================================== Select Reliable IDs =====================================>
     print('\n\n\n================> Total stage 2/6: Select reliable images for the 1st stage re-training')
 
-    dataset = SemiDataset(args.dataset, args.data_root, 'label', args.crop_size, args.split_file_path)
+    dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     select_reliable(checkpoints, dataloader, args)
@@ -156,8 +138,8 @@ def main(args):
     # <================================ Pseudo label reliable images =================================>
     print('\n\n\n================> Total stage 3/6: Pseudo labeling reliable images')
 
-    cur_unlabeled_id_path = os.path.join(args.reliable_id_path, 'reliable_ids.yaml')
-    dataset = SemiDataset(args.dataset, args.data_root, 'label', args.crop_size, cur_unlabeled_id_path,None,True)
+    cur_unlabeled_id_path = os.path.join(args.reliable_id_path, 'reliable_ids.txt')
+    dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, cur_unlabeled_id_path)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     label(best_model, dataloader, args)
@@ -168,7 +150,7 @@ def main(args):
     MODE = 'semi_train'
 
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
-                           cur_unlabeled_id_path, args.pseudo_mask_path,True)
+                           args.labeled_id_path, cur_unlabeled_id_path, args.pseudo_mask_path)
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
                              pin_memory=True, num_workers=16, drop_last=True)
 
@@ -179,8 +161,8 @@ def main(args):
     # <=============================== Pseudo label unreliable images ================================>
     print('\n\n\n================> Total stage 5/6: Pseudo labeling unreliable images')
 
-    cur_unlabeled_id_path = os.path.join(args.reliable_id_path, 'reliable_ids.yaml')
-    dataset = SemiDataset(args.dataset, args.data_root, 'label', args.crop_size, cur_unlabeled_id_path,None,False)
+    cur_unlabeled_id_path = os.path.join(args.reliable_id_path, 'unreliable_ids.txt')
+    dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, cur_unlabeled_id_path)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     label(best_model, dataloader, args)
@@ -189,24 +171,19 @@ def main(args):
     print('\n\n\n================> Total stage 6/6: The 2nd stage re-training on labeled and all unlabeled images')
 
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
-                           args.split_file_path, args.pseudo_mask_path)
+                           args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
                              pin_memory=True, num_workers=16, drop_last=True)
 
     model, optimizer = init_basic_elems(args)
 
-    best_model = train(model, trainloader, valloader, criterion, optimizer, args)
-
-    # <====================== Test supervised model on testset (Re-trained) ======================>
-    print('\n\n\n================> Test supervised model on testset (Re-trained)')
-
-    test(best_model,testloader,args)
+    train(model, trainloader, valloader, criterion, optimizer, args)
 
     wandb.finish()
 
 def init_basic_elems(args):
     model_zoo = {'deeplabv3plus': DeepLabV3Plus, 'pspnet': PSPNet, 'deeplabv2': DeepLabV2, 'unet': Unet}
-    model = model_zoo[args.model](args.backbone, 21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19)
+    model = model_zoo[args.model](args.backbone, 21 if args.dataset == 'pascal' else 19)
 
     head_lr_multiple = 10.0
     if args.model == 'deeplabv2':
@@ -265,8 +242,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
             optimizer.param_groups[1]["lr"] = lr * 1.0 if args.model == 'deeplabv2' else lr * 10.0
 
             #wandb log with custom step
-            if args.use_wandb:
-                wandb.log({"loss": loss,"step_train":step_train, "epoch": epoch})
+            #wandb.log({"loss": loss,"step_train":step_train, "epoch": epoch})
             step_train += 1
             tbar.set_description('Loss: %.3f' % (total_loss / (i + 1)))
 
@@ -285,34 +261,34 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                 img = img.cuda()
                 pred = model(img)
                 pred = torch.argmax(pred, dim=1)
-
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
+                #print(np.unique(np.squeeze(pred.cpu().numpy(), axis=0)))
                 mIOU = metric.evaluate()[-1]
-                if args.use_wandb:
-                    wandb.log({"mIOU": mIOU,"step_val":step_val})
-                    if i <= 10:
-                        #wandb.log({"img": [wandb.Image(img, caption="img")]})
-                        #wandb.log({"mask": [wandb.Image(pred.cpu().numpy(), caption="mask")]})
-                        class_lables = dict((el, "something") for el in list(range(21)))
-                        class_lables.update({255: "boarder"})
-                        class_lables.update({0: "nothing"})
-                        wandb_iamge = wandb.Image(cv2.resize(np.moveaxis(np.squeeze(img.cpu().numpy(), axis=0), 0, -1), dsize=(100, 100), interpolation=cv2.INTER_NEAREST), masks={
-                            "predictions": {
-                                "mask_data": cv2.resize(np.squeeze(pred.cpu().numpy(), axis=0), dsize=(100, 100), interpolation=cv2.INTER_NEAREST),
-                                "class_labels": class_lables
-                            },
-                            "ground_truth": {
-                                "mask_data": cv2.resize(np.squeeze(mask.numpy(), axis=0), dsize=(100, 100), interpolation=cv2.INTER_NEAREST),
-                                "class_labels": class_lables
-                            }
-                        })
-                        wandb_iamges.append(wandb_iamge)
+                wandb.log({"mIOU": mIOU,"step_val":step_val})
+                if i <= 10:
+                    wandb.log({"img": [wandb.Image(img, caption="img")]})
+                    wandb.log({"mask": [wandb.Image(pred.cpu().numpy(), caption="mask")]})
+                    class_lables = dict((el, "something") for el in list(range(21)))
+                    class_lables.update({255: "boarder"})
+                    class_lables.update({0: "nothing"})
+                    wandb_iamge = wandb.Image(img, masks={
+                        "predictions": {
+                            "mask_data": np.squeeze(pred.cpu().numpy(), axis=0),
+                            "class_labels": class_lables
+                        },
+                        "ground_truth": {
+                            "mask_data": np.squeeze(mask.numpy(), axis=0),
+                            "class_labels": class_lables
+                        }
+                    })
+                    wandb_iamges.append(wandb_iamge)
+                tbar.set_description('mean mIOU: %.2f' % (mIOU * 100.0))
                 step_val += 1
 
-                tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
-        if args.use_wandb:
-            wandb.log({"Pictures": wandb_iamges,"step_epoch":epoch})
-            wandb.log({"final mIOU": mIOU})
+        
+        
+        
+        wandb.log({"Pictures": wandb_iamges,"step_epoch":epoch})
         mIOU *= 100.0
         if mIOU > previous_best:
             if previous_best != 0:
@@ -344,7 +320,6 @@ def select_reliable(models, dataloader, args):
 
     with torch.no_grad():
         for img, mask, id in tbar:
-            if args.dataset == 'melanoma': mask = mask.clip(max=1)
             img = img.cuda()
 
             preds = []
@@ -353,94 +328,44 @@ def select_reliable(models, dataloader, args):
 
             mIOU = []
             for i in range(len(preds) - 1):
-                metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19)
+                metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 19)
                 metric.add_batch(preds[i], preds[-1])
                 mIOU.append(metric.evaluate()[-1])
 
             reliability = sum(mIOU) / len(mIOU)
             id_to_reliability.append((id[0], reliability))
 
-
-    labeled_ids = []
-    with open(args.split_file_path,'r') as file:
-        split_dict = yaml.load(file, Loader=yaml.FullLoader)
-        labeled_ids = split_dict[args.val_split]["labeled"]
-
-    yaml_dict = dict()
-    yaml_dict[args.val_split] = dict(
-        labeled=labeled_ids,
-        reliable=[i[0] for i in id_to_reliability[:len(id_to_reliability) // 2]],
-        unreliable=[i[0] for i in id_to_reliability[len(id_to_reliability) // 2:]]
-        )
-    #save to yaml
-    with open(os.path.join(args.reliable_id_path, 'reliable_ids.yaml'), 'w+') as outfile:
-        yaml.dump(yaml_dict, outfile, default_flow_style=False)
+    id_to_reliability.sort(key=lambda elem: elem[1], reverse=True)
+    with open(os.path.join(args.reliable_id_path, 'reliable_ids.txt'), 'w') as f:
+        for elem in id_to_reliability[:len(id_to_reliability) // 2]:
+            f.write(elem[0] + '\n')
+    with open(os.path.join(args.reliable_id_path, 'unreliable_ids.txt'), 'w') as f:
+        for elem in id_to_reliability[len(id_to_reliability) // 2:]:
+            f.write(elem[0] + '\n')
 
 
 def label(model, dataloader, args):
     model.eval()
     tbar = tqdm(dataloader)
 
-    metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19)
+    metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 19)
     cmap = color_map(args.dataset)
 
     with torch.no_grad():
         for img, mask, id in tbar:
-            if args.dataset == 'melanoma': mask = mask.clip(max=1) #clips max value to 1: 255 to 1
             img = img.cuda()
             pred = model(img, True)
             pred = torch.argmax(pred, dim=1).cpu()
 
             metric.add_batch(pred.numpy(), mask.numpy())
             mIOU = metric.evaluate()[-1]
-            
+
             pred = Image.fromarray(pred.squeeze(0).numpy().astype(np.uint8), mode='P')
             pred.putpalette(cmap)
 
             pred.save('%s/%s' % (args.pseudo_mask_path, os.path.basename(id[0].split(' ')[1])))
 
             tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
-
-def test(model, dataloader, args):
-    metric = mulitmetrics(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19)
-    model.eval()
-    tbar = tqdm(dataloader)
-    #set i for sample images
-    i = 0
-    wandb_iamges = []
-    torch.cuda.empty_cache()
-    with torch.no_grad():
-        for img, mask, _ in tbar:
-            if args.dataset == 'melanoma': mask = mask.clip(max=1) #clips max value to 1: 255 to 1
-            i = i + 1
-            img = img.cuda()
-            pred = model(img)
-            pred = torch.argmax(pred, dim=1)
-
-            metric.add_batch(pred.cpu().numpy(), mask.numpy())
-            overall_acc, mIOU, mDICE = metric.evaluate()
-            tbar.set_description('test mIOU: %.2f, mDICE: %.2f,overall_acc: %.2f' % (mIOU*100.0, mDICE*100.0,overall_acc*100.0))
-            if args.use_wandb:
-                if i <= 10:
-                    #wandb.log({"img": [wandb.Image(img, caption="img")]})
-                    #wandb.log({"mask": [wandb.Image(pred.cpu().numpy(), caption="mask")]})
-                    class_lables = dict((el, "something") for el in list(range(21)))
-                    class_lables.update({255: "boarder"})
-                    class_lables.update({0: "nothing"})
-                    wandb_iamge = wandb.Image(cv2.resize(np.moveaxis(np.squeeze(img.cpu().numpy(), axis=0), 0, -1), dsize=(100, 100), interpolation=cv2.INTER_NEAREST), masks={
-                        "predictions": {
-                            "mask_data": cv2.resize(np.squeeze(pred.cpu().numpy(), axis=0), dsize=(100, 100), interpolation=cv2.INTER_NEAREST),
-                            "class_labels": class_lables
-                        },
-                        "ground_truth": {
-                            "mask_data": cv2.resize(np.squeeze(mask.numpy(), axis=0), dsize=(100, 100), interpolation=cv2.INTER_NEAREST),
-                            "class_labels": class_lables
-                        }
-                    })
-                    wandb_iamges.append(wandb_iamge)
-        if args.use_wandb:
-            wandb.log({"Pictures": wandb_iamges})
-            wandb.log({"test mIOU": mIOU,"test mDICE": mDICE,"test overall_acc": overall_acc})
 
 
 if __name__ == '__main__':
@@ -449,22 +374,12 @@ if __name__ == '__main__':
     if args.lr is None:
         args.lr = 0.001
     if args.epochs is None:
-        args.epochs = {'pascal': 80, 'cityscapes': 240, 'melanoma': 80}[args.dataset]
+        args.epochs = {'pascal': 80, 'cityscapes': 240, 'melanoma': 100}[args.dataset]
     if args.lr is None:
         args.lr = {'pascal': 0.001, 'cityscapes': 0.004, 'melanoma': 0.001}[args.dataset] / 16 * args.batch_size
     if args.crop_size is None:
-        args.crop_size = {'pascal': 321, 'cityscapes': 721, 'melanoma': 256}[args.dataset]
+        args.crop_size = {'pascal': 321, 'cityscapes': 721, 'melanoma': 256}[args.dataset] #'pascal': 321,
 
-    if args.split_file_path is None:   
-        args.split_file_path = f"dataset/splits/{args.dataset}/{args.split}/split_{args.shuffle}/split.yaml"
-    if args.test_file_path is None:   
-        args.test_file_path = f"dataset/splits/{args.dataset}/test.yaml"
-    if args.pseudo_mask_path is None:   
-        args.pseudo_mask_path = f"outdir/pseudo_masks/{args.dataset}/{args.split}/split_{args.shuffle}"
-    if args.save_path is None:   
-        args.save_path = f"outdir/models/{args.dataset}/{args.split}/split_{args.shuffle}"
-    if args.reliable_id_path is None:   
-        args.reliable_id_path = f"outdir/reliable_ids/{args.dataset}/{args.split}/split_{args.shuffle}"
     print()
     print(args)
 

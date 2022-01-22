@@ -3,11 +3,12 @@ from model.semseg.base import BaseNet
 import torch
 from torch import nn
 import torch.nn.functional as F
+import pytorch_lightning as pl
 
 
 class DeepLabV3Plus(BaseNet):
-    def __init__(self, backbone, nclass):
-        super(DeepLabV3Plus, self).__init__(backbone)
+    def __init__(self, backbone, nclass, *args, **kwargs):
+        super(DeepLabV3Plus, self).__init__(backbone, nclass, *args, **kwargs)
 
         low_level_channels = self.backbone.channels[0]
         high_level_channels = self.backbone.channels[-1]
@@ -56,7 +57,7 @@ def ASPPConv(in_channels, out_channels, atrous_rate):
     return block
 
 
-class ASPPPooling(nn.Module):
+class ASPPPooling(pl.LightningModule):
     def __init__(self, in_channels, out_channels):
         super(ASPPPooling, self).__init__()
         self.gap = nn.Sequential(nn.AdaptiveAvgPool2d(1),
@@ -70,7 +71,7 @@ class ASPPPooling(nn.Module):
         return F.interpolate(pool, (h, w), mode="bilinear", align_corners=True)
 
 
-class ASPPModule(nn.Module):
+class ASPPModule(pl.LightningModule):
     def __init__(self, in_channels, atrous_rates):
         super(ASPPModule, self).__init__()
         out_channels = in_channels // 8

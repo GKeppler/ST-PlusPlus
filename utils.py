@@ -1,6 +1,7 @@
 import numpy as np
 from PIL import Image
 
+EPS = 1e-10
 
 def count_params(model):
     param_num = sum(p.numel() for p in model.parameters())
@@ -24,8 +25,45 @@ class meanIOU:
             self.hist += self._fast_hist(lp.flatten(), lt.flatten())
 
     def evaluate(self):
-        iu = np.diag(self.hist) / (self.hist.sum(axis=1) + self.hist.sum(axis=0) - np.diag(self.hist))
+        iu = np.diag(self.hist) / (self.hist.sum(axis=1) + self.hist.sum(axis=0) - np.diag(self.hist) + EPS)
         return iu, np.nanmean(iu)
+
+class mulitmetrics:
+    #from https://github.com/kevinzakka/pytorch-goodies/blob/c039691f349be9f21527bb38b907a940bfc5e8f3/metrics.py
+    def __init__(self, num_classes):
+        self.num_classes = num_classes
+        self.hist = np.zeros((num_classes, num_classes))
+
+    def _fast_hist(self, label_pred, label_true):
+        mask = (label_true >= 0) & (label_true < self.num_classes)
+        hist = np.bincount(
+            self.num_classes * label_true[mask].astype(int) +
+            label_pred[mask], minlength=self.num_classes ** 2).reshape(self.num_classes, self.num_classes)
+        return hist
+
+    def add_batch(self, predictions, gts):
+        for lp, lt in zip(predictions, gts):
+            self.hist += self._fast_hist(lp.flatten(), lt.flatten())
+
+    def evaluate(self):
+        A_inter_B = np.diag(self.hist)
+        A = self.hist.sum(axis=1)
+        B = self.hist.sum(axis=0)
+        #jaccard_index
+        iu = A_inter_B / (A + B - A_inter_B + EPS)
+        meanIOU = np.nanmean(iu)
+
+        #dice_coefficient
+        dice = (2 * A_inter_B) / (A + B + EPS)
+        avg_dice = np.nanmean(dice)
+
+        #overall_pixel_accuracy
+        correct = A_inter_B.sum()
+        total = self.hist.sum()
+        overall_acc = correct / (total + EPS)
+
+        return overall_acc, meanIOU, avg_dice
+
 
 
 def color_map(dataset='pascal'):
@@ -66,5 +104,8 @@ def color_map(dataset='pascal'):
         cmap[16] = np.array([0, 80, 100])
         cmap[17] = np.array([0,  0, 230])
         cmap[18] = np.array([119, 11, 32])
+
+    elif dataset == 'melanoma': 
+        cmap[1] = np.array([255, 255, 255])
 
     return cmap

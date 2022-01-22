@@ -2,8 +2,12 @@ pretrained/*
 wandb/*
 .vscode/*
 __pycache__/*
-model_checkpoints/*
-model/backbone/__pycache__/*
+lightning_logs/*
 model/semseg/__pycache__/*
 outdir/*
+model_checkpoints/*
 dataset/__pycache__/*
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]

@@ -3,16 +3,17 @@ from model.semseg.base import BaseNet
 import torch
 from torch import nn
 import torch.nn.functional as F
+import pytorch_lightning as pl
 
 
 class PSPNet(BaseNet):
-    def __init__(self, backbone, nclass):
-        super(PSPNet, self).__init__(backbone)
+    def __init__(self, backbone, nclass, **kwargs):
+        super(PSPNet, self).__init__(backbone, nclass, **kwargs)
 
         self.head = PSPHead(self.backbone.channels[-1], nclass)
 
 
-class PSPHead(nn.Module):
+class PSPHead(pl.LightningModule):
     def __init__(self, in_channels, out_channels):
         super(PSPHead, self).__init__()
         inter_channels = in_channels // 4
@@ -28,7 +29,7 @@ class PSPHead(nn.Module):
         return self.conv5(x)
 
 
-class PyramidPooling(nn.Module):
+class PyramidPooling(pl.LightningModule):
     def __init__(self, in_channels):
         super(PyramidPooling, self).__init__()
         self.pool1 = nn.AdaptiveAvgPool2d(1)
