@@ -18,6 +18,7 @@ from torch.optim import SGD
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, base
+from pytorch_lightning.loggers import WandbLogger
 from tqdm import tqdm
 import wandb
 #from pytorch_lightning.utilities.cli import LightningCLI
@@ -77,6 +78,7 @@ def parse_args():
 def main(args):
     if use_wandb == True:
         wandb.init(project='ST++', entity='gkeppler')
+        wandb_logger = WandbLogger(project='ST++')
         wandb.define_metric("step_train")
         wandb.define_metric("step_val")
         wandb.define_metric("step_epoch")
@@ -123,6 +125,7 @@ def main(args):
         fast_dev_run=dev_run,
         max_epochs=args.epochs,
         log_every_n_steps=2,
+        logger=wandb_logger if args.usewandb else None,
         #callbacks=[checkpoint_callback], #checkpoint doest save model properly, dont know why -> ch
         gpus=[0])
     # <====================== Supervised training with labeled images (SupOnly) ======================>
