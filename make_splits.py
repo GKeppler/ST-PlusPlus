@@ -15,7 +15,7 @@ from sklearn.model_selection import KFold
 dataset = r"melanoma"
 cross_val_splits = 5
 num_shuffels = 3
-splits = ["1/8", "1/4", "1/30"]
+splits = ["1","1/8", "1/4", "1/30"]
 base_path = (r"/lsdf/kit/iai/projects/iai-aida/Daten_Keppler/ISIC_Demo_2017")
 images_folder = 'images'
 labels_folder = 'labels'
@@ -63,8 +63,11 @@ for shuffle in range(num_shuffels):
         #save to yaml
         ## e.g 1/4 -> 1_4 for folder name
         zw = list(split)
-        zw[1]="_"
+        if len(zw) > 1:
+            zw[1]="_"
         split = "".join(zw)
+        
+
         yaml_path = fr"dataset/splits/{dataset}/{split}/split_{shuffle}"
         Path(yaml_path).mkdir(parents=True, exist_ok=True)
         with open(yaml_path+'/split.yaml', 'w+') as outfile:
