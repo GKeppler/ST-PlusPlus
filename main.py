@@ -439,7 +439,7 @@ def test(model, dataloader, args):
                     })
                     wandb_iamges.append(wandb_iamge)
         if args.use_wandb:
-            wandb.log({"Pictures": wandb_iamges})
+            wandb.log({"Test Pictures": wandb_iamges})
             wandb.log({"test mIOU": mIOU,"test mDICE": mDICE,"test overall_acc": overall_acc})
 
 
