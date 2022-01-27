@@ -11,3 +11,5 @@ dataset/__pycache__/*
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
+dataset/splits/melanoma/laptop_test/test_laptop.yaml
+dataset/splits/melanoma/laptop_test/train_laptop.yaml
