@@ -66,7 +66,7 @@ class SemiDataset(Dataset):
 
         if self.mode == 'val' or self.mode == 'label'  or self.mode == 'test':
             mask = Image.open(os.path.join(self.root, id.split(' ')[1]))
-            img, mask = resize_crop(img, mask, self.size)
+            #img, mask = resize_crop(img, mask, self.size)
             img, mask = normalize(img, mask)
             #print(img.cpu().numpy().shape)
             return img, mask, id

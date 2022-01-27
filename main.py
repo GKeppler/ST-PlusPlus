@@ -93,7 +93,6 @@ def main(args):
 
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.split_file_path)
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
-    subset_indices = list(range(10))
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
                              pin_memory=True, num_workers=16, drop_last=True)#,sampler=torch.utils.data.SubsetRandomSampler(subset_indices))
 
