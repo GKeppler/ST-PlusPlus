@@ -54,6 +54,7 @@ def parse_args():
     parser.add_argument('--plus', dest='plus', default=True, action='store_true',
                         help='whether to use ST++')
     parser.add_argument('--use-wandb', default=False, help='whether to use WandB for logging')
+    parser.add_argument('--use-tta', default=True, help='whether to use Test Time Augmentation')
 
     args = parser.parse_args()
     return args
@@ -387,7 +388,7 @@ def label(model, dataloader, args):
         for img, mask, id in tbar:
             if args.dataset == 'melanoma': mask = mask.clip(max=1) #clips max value to 1: 255 to 1
             img = img.cuda()
-            pred = model(img, True)
+            pred = model(img, args.use_tta)
             pred = torch.argmax(pred, dim=1).cpu()
 
             metric.add_batch(pred.numpy(), mask.numpy())
@@ -413,7 +414,7 @@ def test(model, dataloader, args):
             if args.dataset == 'melanoma': mask = mask.clip(max=1) #clips max value to 1: 255 to 1
             i = i + 1
             img = img.cuda()
-            pred = model(img)
+            pred = model(img, args.use_tta)
             pred = torch.argmax(pred, dim=1)
 
             metric.add_batch(pred.cpu().numpy(), mask.numpy())
