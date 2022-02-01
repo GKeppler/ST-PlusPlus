@@ -38,7 +38,7 @@ def parse_args():
     parser.add_argument('--crop-size', type=int, default=None)
     parser.add_argument('--backbone', type=str, choices=['resnet18', 'resnet50', 'resnet101'], default='resnet50')
     parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2', 'unet'],
-                        default='unet')
+                        default='deeplabv3plus')
     parser.add_argument('--val-split', type=str, default='val_split_0') #need to implement in Dataloader, crrently not working                   
 
     # semi-supervised settings
@@ -46,7 +46,7 @@ def parse_args():
     parser.add_argument('--shuffle', type=int, default=0)
     #these are derived from the above split, shuffle and dataset. They dont need to be set
     parser.add_argument('--split-file-path', type=str, default=None)#"dataset/splits/melanoma/1_30/split_0/split_sample.yaml")
-    parser.add_argument('--test-file-path', type=str, default=None)#"dataset/splits/melanoma/test_sample.yaml")
+    parser.add_argument('--test-file-path', type=str, default=none)#"dataset/splits/melanoma/test_sample.yaml")
     parser.add_argument('--pseudo-mask-path', type=str, default=None)   
     parser.add_argument('--save-path', type=str, default=None)
     parser.add_argument('--reliable-id-path', type=str, default=None)

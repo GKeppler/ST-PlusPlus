@@ -1,4 +1,4 @@
-from dataset.transform import crop, hflip, normalize, resize, blur, cutout, resize_crop
+from dataset.transform import crop, hflip, normalize, resize, blur, cutout, resize_crop, to_polar, to_cart
 
 import math
 import os
@@ -66,6 +66,7 @@ class SemiDataset(Dataset):
 
         if self.mode == 'val' or self.mode == 'label'  or self.mode == 'test':
             mask = Image.open(os.path.join(self.root, id.split(' ')[1]))
+            #unet needs much memory on 
             #img, mask = resize_crop(img, mask, self.size)
             img, mask = normalize(img, mask)
             #print(img.cpu().numpy().shape)

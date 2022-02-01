@@ -44,8 +44,10 @@ class BaseNet(pl.LightningModule):
 
         else:
             h, w = x.shape[-2:]
-            scales = [0.5, 0.75, 1.0, 1.5, 2.0]
-
+            scales = [0.5, 0.75, 1.0]
+            #to avoid cuda out of memory
+            #scales = [0.5, 0.75, 1.0, 1.5, 2.0]
+            
             final_result = None
 
             for scale in scales:

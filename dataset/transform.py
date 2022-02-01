@@ -135,3 +135,35 @@ def cutout(img, mask, p=0.5, size_min=0.02, size_max=0.4, ratio_1=0.3,
         mask = Image.fromarray(mask.astype(np.uint8))
 
     return img, mask
+
+
+# from https://github.com/marinbenc/medical-polar-training/blob/main/polar_transformations.py
+import cv2
+import numpy as np
+def to_polar(img, mask, center=None):
+    img = np.float32(img)
+    mask = np.float32(mask)
+    value = np.sqrt(((img.shape[0]/2.0)**2.0)+((img.shape[1]/2.0)**2.0))
+    if center is None:
+        center = (img.shape[0]//2, img.shape[1]//2)
+    polar_image = cv2.linearPolar(img, center, value, cv2.WARP_FILL_OUTLIERS)  
+    polar_mask = cv2.linearPolar(mask, center, value, cv2.WARP_FILL_OUTLIERS) 
+    polar_image = cv2.rotate(polar_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    polar_mask = cv2.rotate(polar_mask, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    polar_image = Image.fromarray(polar_image.astype('uint8'))
+    polar_mask = Image.fromarray(polar_mask.astype('uint8'))
+    return polar_image, polar_mask
+
+def to_cart(polar_image, polar_mask, center=None):
+    polar_image = np.float32(polar_image)
+    polar_mask = np.float32(polar_mask)
+    polar_image = cv.rotate(polar_image, cv.ROTATE_90_CLOCKWISE)
+    polar_mask = cv.rotate(polar_mask, cv.ROTATE_90_CLOCKWISE)
+    if center is None:
+        center = (polar_image.shape[1]//2, polar_image.shape[0]//2)
+    value = np.sqrt(((polar_image.shape[1]/2.0)**2.0)+((polar_image.shape[0]/2.0)**2.0))
+    img = cv.linearPolar(polar_image, center, value, cv.WARP_FILL_OUTLIERS + cv.WARP_INVERSE_MAP)
+    mask = cv.linearPolar(polar_mask, center, value, cv.WARP_FILL_OUTLIERS + cv.WARP_INVERSE_MAP)
+    img = Image.fromarray(img.astype('uint8'))
+    mask = Image.fromarray(mask.astype('uint8'))
+    return img, mask
