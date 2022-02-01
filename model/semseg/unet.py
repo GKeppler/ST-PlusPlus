@@ -14,6 +14,10 @@ from torch.utils.data.distributed import DistributedSampler
 
 import pytorch_lightning as pl
 
+#this is a customized uent from https://github.com/milesial/Pytorch-UNet
+#it uses padding such that the input shape is the same as the output.
+# additional batchnormalization
+
 class Unet(BaseNet):
     def __init__(self, backbone, nclass, *args, **kwargs):
         super(Unet, self).__init__(backbone, nclass, *args, **kwargs)
@@ -35,7 +39,7 @@ class Unet(BaseNet):
         self.outc = OutConv(64, self.n_classes)
 
     def forward(self, x, tta = False):
-        # Test time Aufmentation
+        # Test time Augmentation
         #replace down with resnet backbone
 
         x1 = self.inc(x)
