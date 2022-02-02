@@ -45,7 +45,7 @@ def parse_args():
     parser.add_argument('--crop-size', type=int, default=None)
     parser.add_argument('--backbone', type=str, choices=['resnet18', 'resnet50', 'resnet101'], default='resnet50')
     parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2', 'unet'],
-                        default='deeplabv3plus')
+                        default='unet')
 
     # semi-supervised settings
     parser.add_argument('--train-yaml', type=str, default="dataset/splits/melanoma/1_30/split_0/split.yaml")
@@ -58,6 +58,7 @@ def parse_args():
     parser.add_argument('--reliable-id-path', type=str, default = 'outdir/reliable_ids/melanoma/1_30/split_0')
     parser.add_argument('--plus', dest='plus', default=False, action='store_true',
                         help='whether to use ST++')
+    parser.add_argument('--use-wandb', default=False, help='whether to use WandB for logging')
 
     args = parser.parse_args()
 
@@ -114,18 +115,20 @@ def main(args):
     #cli = LightningCLI(model, trainloader)
 
     # saves a file like: my/path/sample-epoch=02-val_loss=0.32.ckpt
-    checkpoint_callback = ModelCheckpoint(
-        dirpath=os.path.join("./", f"{args.save_path}"),
-        auto_insert_metric_name=True,
-        save_weights_only=True,
-     )
+
+    # checkpoint_callback = ModelCheckpoint(
+    #     dirpath=os.path.join("./", f"{args.save_path}"),
+    #     auto_insert_metric_name=True,
+    #     save_weights_only=True,
+    #  )
+
      #filename=f'{args.model}-epoch{Trainer.current_epoch:02d}-val_loss{Trainer.val_loss:.2f}'
     dev_run = False
     Trainer = pl.Trainer.from_argparse_args(args,
         fast_dev_run=dev_run,
         max_epochs=args.epochs,
         log_every_n_steps=2,
-        logger=wandb_logger if args.usewandb else None,
+        logger=wandb_logger if args.use_wandb else None,
         #callbacks=[checkpoint_callback], #checkpoint doest save model properly, dont know why -> ch
         gpus=[0])
     # <====================== Supervised training with labeled images (SupOnly) ======================>
