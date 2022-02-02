@@ -46,7 +46,7 @@ def parse_args():
     parser.add_argument('--shuffle', type=int, default=0)
     #these are derived from the above split, shuffle and dataset. They dont need to be set
     parser.add_argument('--split-file-path', type=str, default=None)#"dataset/splits/melanoma/1_30/split_0/split_sample.yaml")
-    parser.add_argument('--test-file-path', type=str, default=none)#"dataset/splits/melanoma/test_sample.yaml")
+    parser.add_argument('--test-file-path', type=str, default=None)#"dataset/splits/melanoma/test_sample.yaml")
     parser.add_argument('--pseudo-mask-path', type=str, default=None)   
     parser.add_argument('--save-path', type=str, default=None)
     parser.add_argument('--reliable-id-path', type=str, default=None)
