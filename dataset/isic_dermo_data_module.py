@@ -13,6 +13,7 @@ class IsicDermoDataModule(pl.LightningDataModule):
         batch_size: int,
         train_yaml_path: str,
         test_yaml_path:str,
+        pseudo_mask_path:str,
         num_workers=16,
         pin_memory=False,
         ):
@@ -24,7 +25,7 @@ class IsicDermoDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.train_yaml_path = train_yaml_path
         self.test_yaml_path = test_yaml_path
-
+        self.pseudo_mask_path = pseudo_mask_path
         ##transformations not used currently
         # self.train_transforms = train_transforms
         # self.train_transforms_unlabeled = (
@@ -58,6 +59,7 @@ class IsicDermoDataModule(pl.LightningDataModule):
             root_dir=self.root_dir,
             labeled_id_list = val_split_0["labeled"],
             unlabeled_id_list = val_split_0["unlabeled"],
+            pseudo_mask_path = self.pseudo_mask_path,
             mode='semi_train'
         )
 

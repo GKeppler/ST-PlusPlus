@@ -104,6 +104,7 @@ def main(args):
             batch_size = args.batch_size,
             train_yaml_path=args.split_file_path,
             test_yaml_path=args.test_file_path,  
+            pseudo_mask_path = args.pseudo_mask_path
     )
  
     num_classes = 21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19                                                                                                                                                   
@@ -127,8 +128,8 @@ def main(args):
         log_every_n_steps=2,
         logger=wandb_logger if args.use_wandb else None,
         callbacks=[checkpoint_callback], 
-        gpus=[0],
-        #accelerator="cpu"
+        #gpus=[0],
+        accelerator="cpu"
         )
     # <====================== Supervised training with labeled images (SupOnly) ======================>
     print('\n================> Total stage 1/%i: '
