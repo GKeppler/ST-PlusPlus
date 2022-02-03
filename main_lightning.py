@@ -1,10 +1,12 @@
 #from torch.utils.data.sampler import SubsetRandomSampler
+from statistics import mode
 from dataset.semi import SemiDataset
 from model.semseg.deeplabv2 import DeepLabV2
 from model.semseg.deeplabv3plus import DeepLabV3Plus
 from model.semseg.pspnet import PSPNet
 from model.semseg.base import BaseNet
 from model.semseg.unet import Unet
+from model.semseg.small_unet import SmallUnet
 from utils import count_params, meanIOU, color_map
 
 import argparse
@@ -41,24 +43,26 @@ def parse_args():
     parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes', 'melanoma'], default='melanoma')
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--lr', type=float, default=None)
-    parser.add_argument('--epochs', type=int, default=20)
+    parser.add_argument('--epochs', type=int, default=1)
     parser.add_argument('--crop-size', type=int, default=None)
     parser.add_argument('--backbone', type=str, choices=['resnet18', 'resnet50', 'resnet101'], default='resnet50')
-    parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2', 'unet'],
-                        default='unet')
+    parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2', 'unet','smallUnet'],
+                        default='smallUnet')
+    parser.add_argument('--val-split', type=str, default='val_split_0') #need to implement in Dataloader, crrently not working                   
 
     # semi-supervised settings
-    parser.add_argument('--train-yaml', type=str, default="dataset/splits/melanoma/1_30/split_0/split.yaml")
-    parser.add_argument('--test-yaml', type=str, default="dataset/splits/melanoma/test.yaml")
-    parser.add_argument('--pseudo-mask-path', type=str, default='outdir/pseudo_masks/melanoma/1_30/split_0')
-
-    parser.add_argument('--save-path', type=str, default='outdir/models/melanoma/1_30/split_0')
-
-    # arguments for ST++
-    parser.add_argument('--reliable-id-path', type=str, default = 'outdir/reliable_ids/melanoma/1_30/split_0')
+    parser.add_argument('--split', type=str, default="1_30")
+    parser.add_argument('--shuffle', type=int, default=0)
+    #these are derived from the above split, shuffle and dataset. They dont need to be set
+    parser.add_argument('--split-file-path', type=str, default=None)#"dataset/splits/melanoma/1_30/split_0/split_sample.yaml")
+    parser.add_argument('--test-file-path', type=str, default=None)#"dataset/splits/melanoma/test_sample.yaml")
+    parser.add_argument('--pseudo-mask-path', type=str, default=None)   
+    parser.add_argument('--save-path', type=str, default=None)
+    parser.add_argument('--reliable-id-path', type=str, default=None)
     parser.add_argument('--plus', dest='plus', default=False, action='store_true',
                         help='whether to use ST++')
     parser.add_argument('--use-wandb', default=False, help='whether to use WandB for logging')
+    parser.add_argument('--use-tta', default=True, help='whether to use Test Time Augmentation')
 
     args = parser.parse_args()
 
@@ -98,45 +102,39 @@ def main(args):
     dataModule = IsicDermoDataModule(
             root_dir = args.data_root,
             batch_size = args.batch_size,
-            train_yaml_path=args.train_yaml,
-            test_yaml_path=args.test_yaml,  
+            train_yaml_path=args.split_file_path,
+            test_yaml_path=args.test_file_path,  
     )
-
-    #new pl stuff
-    dict_args = vars(args)
-    dict2 = dict_args.copy()
-    del dict2['backbone']    
+ 
     num_classes = 21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19                                                                                                                                                   
-    model_zoo = {'deeplabv3plus': DeepLabV3Plus, 'pspnet': PSPNet, 'deeplabv2': DeepLabV2, 'unet': Unet}
-    model = model_zoo[args.model](backbone=args.backbone, nclass=num_classes, **dict2)
+    model_zoo = {'deeplabv3plus': DeepLabV3Plus, 'pspnet': PSPNet, 'deeplabv2': DeepLabV2, 'unet': Unet, 'smallUnet': SmallUnet}
+    model = model_zoo[args.model](backbone=args.backbone, nclass=num_classes, args = args)
 
     head_lr_multiple = 10.0
-    #configure  
-    #cli = LightningCLI(model, trainloader)
-
     # saves a file like: my/path/sample-epoch=02-val_loss=0.32.ckpt
 
-    # checkpoint_callback = ModelCheckpoint(
-    #     dirpath=os.path.join("./", f"{args.save_path}"),
-    #     auto_insert_metric_name=True,
-    #     save_weights_only=True,
-    #  )
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=os.path.join("./", f"{args.save_path}"),
+        filename=f'{args.model}'+'-{epoch:02d}-{val_acc:.2f}',
+        mode = 'max',
+        save_weights_only=True,
+     )
 
-     #filename=f'{args.model}-epoch{Trainer.current_epoch:02d}-val_loss{Trainer.val_loss:.2f}'
-    dev_run = False
+    dev_run = False #not working when predicting with best_model checkpoint
     Trainer = pl.Trainer.from_argparse_args(args,
         fast_dev_run=dev_run,
         max_epochs=args.epochs,
         log_every_n_steps=2,
         logger=wandb_logger if args.use_wandb else None,
-        #callbacks=[checkpoint_callback], #checkpoint doest save model properly, dont know why -> ch
-        gpus=[0])
+        callbacks=[checkpoint_callback], 
+        gpus=[0],
+        #accelerator="cpu"
+        )
     # <====================== Supervised training with labeled images (SupOnly) ======================>
     print('\n================> Total stage 1/%i: '
           'Supervised training on labeled images (SupOnly)' % (6 if args.plus else 3))
 
-    Trainer.fit(model,datamodule=dataModule)
-
+    Trainer.fit(model = model, datamodule = dataModule)
 
     if not args.plus:
         print('\nParams: %.1fM' % count_params(model))
@@ -146,53 +144,17 @@ def main(args):
         """
         # <============================= Pseudolabel all unlabeled images =============================>
         print('\n\n\n================> Total stage 2/3: Pseudo labeling all unlabeled images')
-
-        # predict can run out of memory with one gpu and doenst return predicitions on 2 gpus. Try test_step: Trainer.predict() with write_prediction
-        stage_2_pl = False
-        if stage_2_pl:
-            pred_list = []
-            pred_list = Trainer.predict(model, dataloader, ckpt_path=checkpoint_callback.best_model_path)
-            #just for evaluation
-            metric = meanIOU(num_classes=num_classes)
-            tbar = tqdm(pred_list)
-            for pred, mask, id in tbar:
-                pred = torch.argmax(pred, dim=1).cpu()
-                #print(pred.numpy().size)
-                #print(mask.cpu().numpy().size)
-                metric.add_batch(pred.numpy(), mask.cpu().numpy())
-                mIOU = metric.evaluate()[-1]
-                pred = Image.fromarray(pred.squeeze(0).numpy().astype(np.uint8), mode='P')
-                pred.putpalette(color_map(args.dataset))
-                pred.save('%s/%s' % (args.pseudo_mask_path, os.path.basename(id[0].split(' ')[1])))
-                tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
-        else:
-            #laod latest checkpoint
-            model_path = os.path.join("./", args.save_path)
-            #model.load_state_dict(torch.load(r"outdir\models\pascal\1_8\split_0\deeplabv3plus_resnet18_4.15.pth"))
-            #label_old(model, dataloader, args)
-            state_dict = torch.load(os.path.join(model_path, os.listdir(model_path)[-1]))
-            print("Loading model:"+ os.path.join(model_path, os.listdir(model_path)[-1]))
-            model.load_state_dict(state_dict)
-            #model = model_zoo[args.model].load_from_checkpoint(os.path.join(model_path, os.listdir(model_path)[-1]),backbone=args.backbone, nclass=num_classes, **dict2)
-            label(model, dataloader, args)
+        
+        Trainer.predict(datamodule = dataModule, ckpt_path=checkpoint_callback.best_model_path)
     
         # <======================== Re-training on labeled and unlabeled images ========================>
         print('\n\n\n================> Total stage 3/3: Re-training on labeled and unlabeled images')
 
-        Trainer = pl.Trainer.from_argparse_args(args,
-            fast_dev_run=dev_run,
-            max_epochs=args.epochs,
-            callbacks=[checkpoint_callback],
-            gpus=[0])
-
-        trainset = SemiDataset(args.dataset, args.data_root, 'semi_train', args.crop_size,
-                                args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
-        trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                                    pin_memory=True, num_workers=4, drop_last=True)
-
-
-        Trainer.fit(model, train_dataloaders=trainloader, val_dataloaders=valloader)
-
+        model = model_zoo[args.model](backbone=args.backbone, nclass=num_classes, args = args)
+        #increase max epochs to double the amount
+        Trainer.fit_loop.max_epochs *= 2 
+        dataModule.mode = "semi_train"
+        Trainer.fit(model = model, datamodule = dataModule)#train_dataloaders = dataModule.train_dataloader(), val_dataloaders = dataModule.val_dataloader())
         return
 
 
@@ -483,13 +445,23 @@ if __name__ == '__main__':
     if args.lr is None:
         args.lr = 0.001
     if args.epochs is None:
-        args.epochs = {'pascal': 80, 'cityscapes': 240, 'melanoma': 100}[args.dataset]
+        args.epochs = {'pascal': 80, 'cityscapes': 240, 'melanoma': 80}[args.dataset]
     if args.lr is None:
         args.lr = {'pascal': 0.001, 'cityscapes': 0.004, 'melanoma': 0.001}[args.dataset] / 16 * args.batch_size
     if args.crop_size is None:
-        args.crop_size = {'pascal': 321, 'cityscapes': 721, 'melanoma': 224}[args.dataset] #'pascal': 321,
+        args.crop_size = {'pascal': 321, 'cityscapes': 721, 'melanoma': 256}[args.dataset]
 
-
+    if args.split_file_path is None:   
+        args.split_file_path = f"dataset/splits/{args.dataset}/{args.split}/split_{args.shuffle}/split.yaml"
+    if args.test_file_path is None:   
+        args.test_file_path = f"dataset/splits/{args.dataset}/test.yaml"
+    if args.pseudo_mask_path is None:   
+        args.pseudo_mask_path = f"outdir/pseudo_masks/{args.dataset}/{args.split}/split_{args.shuffle}"
+    if args.save_path is None:   
+        args.save_path = f"outdir/models/{args.dataset}/{args.split}/split_{args.shuffle}"
+    if args.reliable_id_path is None:   
+        args.reliable_id_path = f"outdir/reliable_ids/{args.dataset}/{args.split}/split_{args.shuffle}"
     print()
     print(args)
+
     main(args)

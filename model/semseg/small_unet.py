@@ -18,30 +18,27 @@ import pytorch_lightning as pl
 #it uses padding such that the input shape is the same as the output.
 # additional batchnormalization
 
-class Unet(BaseNet):
+class SmallUnet(BaseNet):
     def __init__(self, backbone, nclass, args=None):
-        super(Unet, self).__init__(backbone, nclass, args)
+        super(SmallUnet, self).__init__(None, nclass, args)
         #self.hparams = hparams
 
         self.n_channels = 3 #hparams.n_channels
         self.n_classes = nclass
         self.bilinear = True
-        self.inc = DoubleConv(self.n_channels, 64)
-        self.down1 = Down(64, 128)
-        self.down2 = Down(128, 256)
-        self.down3 = Down(256, 512)
+        self.inc = DoubleConv(self.n_channels, 32)
+        self.down1 = Down(32, 64)
+        self.down2 = Down(64, 128)
+        self.down3 = Down(128, 256)
         factor = 2 if self.bilinear else 1
-        self.down4 = Down(512, 1024 // factor)
-        self.up1 = Up(1024, 512 // factor, self.bilinear)
-        self.up2 = Up(512, 256 // factor, self.bilinear)
-        self.up3 = Up(256, 128 // factor, self.bilinear)
-        self.up4 = Up(128, 64, self.bilinear)
-        self.outc = OutConv(64, self.n_classes)
+        self.down4 = Down(256, 512 // factor)
+        self.up1 = Up(512, 256 // factor, self.bilinear)
+        self.up2 = Up(256, 128 // factor, self.bilinear)
+        self.up3 = Up(128, 64 // factor, self.bilinear)
+        self.up4 = Up(64, 32, self.bilinear)
+        self.outc = OutConv(32, self.n_classes)
 
     def forward(self, x, tta = False):
-        # Test time Augmentation
-        #replace down with resnet backbone
-
         x1 = self.inc(x)
         x2 = self.down1(x1)
         x3 = self.down2(x2)
@@ -53,14 +50,6 @@ class Unet(BaseNet):
         x = self.up4(x, x1)
         logits = self.outc(x)
         return logits
-
-    @staticmethod
-    def add_model_specific_args(parent_parser):
-        parser = ArgumentParser(parents=[parent_parser])
-
-        parser.add_argument('--n_channels', type=int, default=3)
-        parser.add_argument('--n_classes', type=int, default=1)
-        return parser   
 
 
 class DoubleConv(nn.Module):
