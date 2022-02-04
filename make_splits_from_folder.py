@@ -12,11 +12,11 @@ from sklearn.model_selection import KFold
 
 # %%
 # set basic params and load file list
-dataset = r"melanoma"
+dataset = r"pneumothorax"
 cross_val_splits = 5
-num_shuffels = 3
+num_shuffels = 5
 splits = ["1/4"]#["1","1/8", "1/4", "1/30"]
-base_path = (r"/home/gustav/datasets/ISIC_Demo_2017")#/lsdf/kit/iai/projects/iai-aida/Daten_Keppler/ISIC_Demo_2017")
+base_path = (r"/lsdf/kit/iai/projects/iai-aida/Daten_Keppler/SIIM_Pneumothorax_seg")#/lsdf/kit/iai/projects/iai-aida/Daten_Keppler/ISIC_Demo_2017")
 images_folder = 'images'
 labels_folder = 'labels'
 training_filelist = []
@@ -24,10 +24,10 @@ val_filelist = []
 test_filelist = []
 
 
-training_filelist = ["train/images/%s.jpg train/labels/%s_segmentation.png"%(f[:12],f[:12]) for f in listdir(join(base_path,'train',images_folder)) if isfile(join(base_path,'train',images_folder, f))]
+training_filelist = ["train/images/%s train/labels/%s"%(f,f) for f in listdir(join(base_path,'train',images_folder)) if isfile(join(base_path,'train',images_folder, f))]
 #sanity check if file in image folder are same as in 
 differences = set(
-    ["train/images/%s.jpg train/labels/%s_segmentation.png"%(f[:12],f[:12]) for f in listdir(join(base_path,'train',labels_folder)) if isfile(join(base_path,'train',labels_folder, f))]
+    ["train/images/%s train/labels/%s"%(f,f) for f in listdir(join(base_path,'train',labels_folder)) if isfile(join(base_path,'train',labels_folder, f))]
 ).symmetric_difference(set(training_filelist))
 if len(differences) != 0:
     raise Exception(f"files in folders '{images_folder}' and '{labels_folder}' do not match because of: {differences}")
