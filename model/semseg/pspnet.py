@@ -7,8 +7,8 @@ import pytorch_lightning as pl
 
 
 class PSPNet(BaseNet):
-    def __init__(self, backbone, nclass, **kwargs):
-        super(PSPNet, self).__init__(backbone, nclass, **kwargs)
+    def __init__(self, backbone, nclass, args=None):
+        super(PSPNet, self).__init__(backbone, nclass, args)
 
         self.head = PSPHead(self.backbone.channels[-1], nclass)
 

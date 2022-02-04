@@ -13,8 +13,7 @@ class IsicDermoDataModule(pl.LightningDataModule):
         batch_size: int,
         train_yaml_path: str,
         test_yaml_path:str,
-        dataset_size = 1.0,
-        drop_last=True,
+        pseudo_mask_path:str,
         num_workers=16,
         pin_memory=False,
         ):
@@ -23,13 +22,10 @@ class IsicDermoDataModule(pl.LightningDataModule):
         self.pin_memory=pin_memory
         logging.info(f"Using {self.num_workers} workers for data loading")
         self.root_dir = root_dir
-        self.dataset_size = dataset_size
-        self.train_root_dir = os.path.join(self.root_dir, "train")
-        self.test_root_dir = os.path.join(self.root_dir, "test")
         self.batch_size = batch_size
         self.train_yaml_path = train_yaml_path
         self.test_yaml_path = test_yaml_path
-
+        self.pseudo_mask_path = pseudo_mask_path
         ##transformations not used currently
         # self.train_transforms = train_transforms
         # self.train_transforms_unlabeled = (
@@ -40,68 +36,58 @@ class IsicDermoDataModule(pl.LightningDataModule):
         # self.val_transforms = val_transforms
         # self.test_transforms = test_transforms
 
-        self.labeled_train_dataset: IsicDermoDataset = None
-        self.unlabeled_train_dataset: IsicDermoDataset = None
+        self.sup_train_dataset: IsicDermoDataset = None
+        self.semi_train_dataset: IsicDermoDataset = None
         self.val_dataset: IsicDermoDataset = None
+        self.predict_dataset: IsicDermoDataset = None
         self.test_dataset: IsicDermoDataset = None
         self.mode = "train"
-        self.__init_datasets()
-    
-    def change_mode(self, mode: str):
-        self.mode =mode
         self.__init_datasets()
 
     def __init_datasets(self):
         with open(self.train_yaml_path,'r') as file:
             split_dict = yaml.load(file, Loader=yaml.FullLoader)
         val_split_0 = split_dict["val_split_0"]
-        
-        if self.mode == "train":           
-            self.train_dataset = IsicDermoDataset(
-                root_dir=self.train_root_dir,
-                labeled_id_list = val_split_0["labeled"],
-                mode='train'
-            )
-        elif self.mode == "semi":
-            self.train_dataset = IsicDermoDataset(
-                root_dir=self.train_root_dir,
-                labeled_id_list = val_split_0["labeled"],
-                unlabeled_id_list = val_split_0["unlabeled"],
-                mode='semi_train'
-            )
-
+                 
+        self.sup_train_dataset = IsicDermoDataset(
+            root_dir=self.root_dir,
+            labeled_id_list = val_split_0["labeled"],
+            mode='train'
+        )
 
         self.semi_train_dataset = IsicDermoDataset(
-            root_dir=self.train_root_dir,
+            root_dir=self.root_dir,
             labeled_id_list = val_split_0["labeled"],
             unlabeled_id_list = val_split_0["unlabeled"],
+            pseudo_mask_path = self.pseudo_mask_path,
             mode='semi_train'
         )
 
         self.val_dataset = IsicDermoDataset(
-            root_dir=self.train_root_dir,
-            #transforms=self.val_transforms,
+            root_dir=self.root_dir,
             labeled_id_list = val_split_0["val"],
             mode='val'
+        )
+
+        self.predict_dataset = IsicDermoDataset(
+            root_dir=self.root_dir,
+            unlabeled_id_list = val_split_0["unlabeled"],
+            mode='label'
         )
 
         with open(self.test_yaml_path,'r') as file:
             test_dict = yaml.load(file, Loader=yaml.FullLoader)
        
         self.test_dataset = IsicDermoDataset(
-            root_dir=self.test_root_dir,
+            root_dir=self.root_dir,
             #transforms=self.test_transforms,
             labeled_id_list=test_dict,
-            mode = 'val'
+            mode = 'test'
         )
 
     def train_dataloader(self):
-        print(
-            f"Getting Train Dataset with \
-                length {len(self.train_dataset)}"
-        )
         return DataLoader(
-            self.train_dataset,
+            self.sup_train_dataset if self.mode == 'train' else self.semi_train_dataset if self.mode == 'semi_train' else None,
             batch_size=self.batch_size,
             #collate_fn=custom_collate,
             num_workers=self.num_workers,
@@ -111,10 +97,20 @@ class IsicDermoDataModule(pl.LightningDataModule):
             #drop_last=self.drop_last
         )
 
+    def predict_dataloader(self):
+        return DataLoader(
+            self.predict_dataset,
+            batch_size=1,
+            #shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            #worker_init_fn=seed_worker
+        )
+        
     def val_dataloader(self):
         return DataLoader(
             self.val_dataset,
-            batch_size=self.batch_size,
+            batch_size=1,
             #shuffle=False,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,

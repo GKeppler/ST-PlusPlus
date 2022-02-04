@@ -1,5 +1,6 @@
 import os
 from dataset.transform import crop, hflip, normalize, resize, blur, cutout
+from torchvision import transforms
 import random
 from PIL import Image
 import math
@@ -45,12 +46,10 @@ class IsicDermoDataset():
         img_path = os.path.join(self.root_dir, id.split(' ')[0])     
         img = Image.open(img_path)
 
-        if self.mode == 'val' or self.mode == 'label':
+        if self.mode == 'val' or self.mode == 'label' or self.mode == 'test':
             mask = Image.open(os.path.join(self.root_dir, id.split(' ')[1]))
-
-            img, mask = resize(img, mask, self.base_size,(1,1))# (0.5, 2.0))
+            img, mask = resize(img, mask, self.base_size,(0.5, 2.0))
             img, mask = normalize(img, mask)
-            #print(img.cpu().numpy().shape)
             return img, mask, id
 
         if self.mode == 'train' or (self.mode == 'semi_train' and id in self.labeled_id_list):
