@@ -1,19 +1,11 @@
-
+## this notebook resizes all images in a folder to center crop
 from PIL import Image
 import os, sys
 
 path = "/home/gustav/datasets/ISIC_Demo_2017/"
 old_name = "ISIC_Demo_2017"
 new_name = "ISIC_Demo_2017_small"
-dirs = os.listdir( path )
-
-def resize():
-    for item in dirs:
-        if os.path.isfile(path+item):
-            im = Image.open(path+item)
-            f, e = os.path.splitext(path+item)
-            imResize = im.resize((200,200), Image.ANTIALIAS)
-            imResize.save(f + ' resized.jpg', 'JPEG', quality=90)
+dirs = os.listdir(path)
 
 def resize_crop(img, base_size):
     w, h = img.size
@@ -30,7 +22,6 @@ def resize_crop(img, base_size):
 
     #resize to base_size
     img = img.resize((base_size, base_size), Image.BILINEAR)
-
     return img    
 
 for path, subdirs, files in os.walk(path):
