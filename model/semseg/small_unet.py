@@ -20,9 +20,8 @@ import pytorch_lightning as pl
 
 class SmallUnet(BaseNet):
     def __init__(self, backbone, nclass, args=None):
-        super(SmallUnet, self).__init__(None, nclass, args)
+        super(SmallUnet, self).__init__(backbone, nclass, args)
         #self.hparams = hparams
-
         self.n_channels = 3 #hparams.n_channels
         self.n_classes = nclass
         self.bilinear = True

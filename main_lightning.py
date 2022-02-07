@@ -39,11 +39,11 @@ def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')
 
     # basic settings
-    parser.add_argument('--data-root', type=str, default="/lsdf/kit/iai/projects/iai-aida/Daten_Keppler/ISIC_Demo_2017")
-    parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes', 'melanoma'], default='melanoma')
+    parser.add_argument('--data-root', type=str, default="/lsdf/kit/iai/projects/iai-aida/Daten_Keppler/BreastCancer")
+    parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes', 'melanoma', 'pneumothorax', 'breastCancer'], default='breastCancer')
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--lr', type=float, default=None)
-    parser.add_argument('--epochs', type=int, default=1)
+    parser.add_argument('--epochs', type=int, default=5)
     parser.add_argument('--crop-size', type=int, default=None)
     parser.add_argument('--backbone', type=str, choices=['resnet18', 'resnet50', 'resnet101'], default='resnet50')
     parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2', 'unet','smallUnet'],
@@ -106,11 +106,11 @@ def main(args):
             test_yaml_path=args.test_file_path,  
             pseudo_mask_path = args.pseudo_mask_path
     )
- 
-    num_classes = 21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19                                                                                                                                                   
+    num_classes = {'pascal': 21, 'cityscapes': 19, 'melanoma': 2, 'breastCancer': 3}[args.dataset]                                                                                                                                                
     model_zoo = {'deeplabv3plus': DeepLabV3Plus, 'pspnet': PSPNet, 'deeplabv2': DeepLabV2, 'unet': Unet, 'smallUnet': SmallUnet}
     model = model_zoo[args.model](backbone=args.backbone, nclass=num_classes, args = args)
 
+    # currently not used
     head_lr_multiple = 10.0
     # saves a file like: my/path/sample-epoch=02-val_loss=0.32.ckpt
 
@@ -447,11 +447,10 @@ if __name__ == '__main__':
         args.lr = 0.001
     if args.epochs is None:
         args.epochs = {'pascal': 80, 'cityscapes': 240, 'melanoma': 80}[args.dataset]
-    if args.lr is None:
-        args.lr = {'pascal': 0.001, 'cityscapes': 0.004, 'melanoma': 0.001}[args.dataset] / 16 * args.batch_size
+    # if args.lr is None:
+    #     args.lr = {'pascal': 0.001, 'cityscapes': 0.004, 'melanoma': 0.001}[args.dataset] / 16 * args.batch_size
     if args.crop_size is None:
-        args.crop_size = {'pascal': 321, 'cityscapes': 721, 'melanoma': 256}[args.dataset]
-
+        args.crop_size = {'pascal': 321, 'cityscapes': 721, 'melanoma': 256,'breastCancer': 256}[args.dataset]
     if args.split_file_path is None:   
         args.split_file_path = f"dataset/splits/{args.dataset}/{args.split}/split_{args.shuffle}/split.yaml"
     if args.test_file_path is None:   

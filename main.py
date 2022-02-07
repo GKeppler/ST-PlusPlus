@@ -1,6 +1,7 @@
 from dataset.semi import SemiDataset
 from model.semseg.deeplabv2 import DeepLabV2
 from model.semseg.deeplabv3plus import DeepLabV3Plus
+from model.semseg.small_unet import SmallUnet
 from model.semseg.pspnet import PSPNet
 from model.semseg.base import BaseNet
 from model.semseg.unet import Unet
@@ -30,19 +31,19 @@ def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')
 
     # basic settings
-    parser.add_argument('--data-root', type=str, default="/lsdf/kit/iai/projects/iai-aida/Daten_Keppler/ISIC_Demo_2017")
-    parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes', 'melanoma'], default='melanoma')
+    parser.add_argument('--data-root', type=str, default="/lsdf/kit/iai/projects/iai-aida/Daten_Keppler/BreastCancer")
+    parser.add_argument('--dataset', type=str, choices=['pascal', 'cityscapes', 'melanoma', 'pneumothorax', 'breastCancer'], default='breastCancer')
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--lr', type=float, default=None)
-    parser.add_argument('--epochs', type=int, default=80)
+    parser.add_argument('--epochs', type=int, default=30)
     parser.add_argument('--crop-size', type=int, default=None)
     parser.add_argument('--backbone', type=str, choices=['resnet18', 'resnet50', 'resnet101'], default='resnet50')
-    parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2', 'unet'],
-                        default='deeplabv3plus')
+    parser.add_argument('--model', type=str, choices=['deeplabv3plus', 'pspnet', 'deeplabv2', 'unet','smallUnet'],
+                        default='unet')
     parser.add_argument('--val-split', type=str, default='val_split_0') #need to implement in Dataloader, crrently not working                   
 
     # semi-supervised settings
-    parser.add_argument('--split', type=str, default="1_30")
+    parser.add_argument('--split', type=str, default="1_4")
     parser.add_argument('--shuffle', type=int, default=0)
     #these are derived from the above split, shuffle and dataset. They dont need to be set
     parser.add_argument('--split-file-path', type=str, default=None)#"dataset/splits/melanoma/1_30/split_0/split_sample.yaml")
@@ -51,7 +52,7 @@ def parse_args():
     parser.add_argument('--save-path', type=str, default=None)
     parser.add_argument('--reliable-id-path', type=str, default=None)
 
-    parser.add_argument('--plus', dest='plus', default=True, action='store_true',
+    parser.add_argument('--plus', dest='plus', default=False, action='store_true',
                         help='whether to use ST++')
     parser.add_argument('--use-wandb', default=False, help='whether to use WandB for logging')
     parser.add_argument('--use-tta', default=True, help='whether to use Test Time Augmentation')
@@ -205,14 +206,16 @@ def main(args):
     wandb.finish()
 
 def init_basic_elems(args):
-    model_zoo = {'deeplabv3plus': DeepLabV3Plus, 'pspnet': PSPNet, 'deeplabv2': DeepLabV2, 'unet': Unet}
-    model = model_zoo[args.model](args.backbone, 21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19)
+    model_zoo = {'deeplabv3plus': DeepLabV3Plus, 'pspnet': PSPNet, 'deeplabv2': DeepLabV2, 'unet': Unet, 'smallUnet': SmallUnet}
+    model = model_zoo[args.model](args.backbone, 21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 2 if args.dataset == 'breastCancer' else 19)
 
     head_lr_multiple = 10.0
     if args.model == 'deeplabv2':
         assert args.backbone == 'resnet101'
         model.load_state_dict(torch.load('pretrained/deeplabv2_resnet101_coco_pretrained.pth'))
         head_lr_multiple = 1.0
+
+
 
     optimizer = SGD([{'params': model.backbone.parameters(), 'lr': args.lr},
                      {'params': [param for name, param in model.named_parameters()
@@ -247,7 +250,8 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
         tbar = tqdm(trainloader)
 
         for i, (img, mask) in enumerate(tbar):
-            if args.dataset == 'melanoma': mask = mask.clip(max=1)
+            if args.dataset == 'melanoma' or args.dataset == 'breastCancer': mask = mask.clip(max=1)
+            
             img, mask = img.cuda(), mask.cuda()
 
             pred = model(img)
@@ -270,7 +274,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
             step_train += 1
             tbar.set_description('Loss: %.3f' % (total_loss / (i + 1)))
 
-        metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19)
+        metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 2 if args.dataset == 'breastCancer' else 19)
 
         model.eval()
         tbar = tqdm(valloader)
@@ -280,7 +284,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
         torch.cuda.empty_cache()
         with torch.no_grad():
             for img, mask, _ in tbar:
-                if args.dataset == 'melanoma': mask = mask.clip(max=1)
+                if args.dataset == 'melanoma' or args.dataset == 'breastCancer': mask = mask.clip(max=1)
                 i = i + 1
                 img = img.cuda()
                 pred = model(img)
@@ -344,7 +348,7 @@ def select_reliable(models, dataloader, args):
 
     with torch.no_grad():
         for img, mask, id in tbar:
-            if args.dataset == 'melanoma': mask = mask.clip(max=1)
+            if args.dataset == 'melanoma' or args.dataset == 'breastCancer': mask = mask.clip(max=1)
             img = img.cuda()
 
             preds = []
@@ -353,7 +357,7 @@ def select_reliable(models, dataloader, args):
 
             mIOU = []
             for i in range(len(preds) - 1):
-                metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19)
+                metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 2 if args.dataset == 'breastCancer'else 19)
                 metric.add_batch(preds[i], preds[-1])
                 mIOU.append(metric.evaluate()[-1])
 
@@ -381,12 +385,12 @@ def label(model, dataloader, args):
     model.eval()
     tbar = tqdm(dataloader)
 
-    metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19)
+    metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 2 if args.dataset == 'breastCancer' else 19)
     cmap = color_map(args.dataset)
 
     with torch.no_grad():
         for img, mask, id in tbar:
-            if args.dataset == 'melanoma': mask = mask.clip(max=1) #clips max value to 1: 255 to 1
+            if args.dataset == 'melanoma' or args.dataset == 'breastCancer': mask = mask.clip(max=1) #clips max value to 1: 255 to 1
             img = img.cuda()
             pred = model(img, args.use_tta)
             pred = torch.argmax(pred, dim=1).cpu()
@@ -402,7 +406,7 @@ def label(model, dataloader, args):
             tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
 
 def test(model, dataloader, args):
-    metric = mulitmetrics(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 19)
+    metric = mulitmetrics(num_classes=21 if args.dataset == 'pascal' else 2 if args.dataset == 'melanoma' else 2 if args.dataset == 'breastCancer' else 19)
     model.eval()
     tbar = tqdm(dataloader)
     #set i for sample images
@@ -411,7 +415,7 @@ def test(model, dataloader, args):
     torch.cuda.empty_cache()
     with torch.no_grad():
         for img, mask, _ in tbar:
-            if args.dataset == 'melanoma': mask = mask.clip(max=1) #clips max value to 1: 255 to 1
+            if args.dataset == 'melanoma' or args.dataset == 'breastCancer': mask = mask.clip(max=1) #clips max value to 1: 255 to 1
             i = i + 1
             img = img.cuda()
             pred = model(img, args.use_tta)
@@ -449,11 +453,11 @@ if __name__ == '__main__':
     if args.lr is None:
         args.lr = 0.001
     if args.epochs is None:
-        args.epochs = {'pascal': 80, 'cityscapes': 240, 'melanoma': 80}[args.dataset]
-    if args.lr is None:
-        args.lr = {'pascal': 0.001, 'cityscapes': 0.004, 'melanoma': 0.001}[args.dataset] / 16 * args.batch_size
+        args.epochs = {'pascal': 80, 'cityscapes': 240, 'melanoma': 80, 'breastCancer': 80}[args.dataset]
+    # if args.lr is None:
+    #     args.lr = {'pascal': 0.001, 'cityscapes': 0.004, 'melanoma': 0.001, 'breastCancer': 0.001}[args.dataset] / 16 * args.batch_size
     if args.crop_size is None:
-        args.crop_size = {'pascal': 321, 'cityscapes': 721, 'melanoma': 256}[args.dataset]
+        args.crop_size = {'pascal': 321, 'cityscapes': 721, 'melanoma': 256, 'breastCancer': 256}[args.dataset]
 
     if args.split_file_path is None:   
         args.split_file_path = f"dataset/splits/{args.dataset}/{args.split}/split_{args.shuffle}/split.yaml"
