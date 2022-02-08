@@ -1,6 +1,3 @@
-# %%
-import pandas as pd
-import os
 import random
 from os import listdir
 from os.path import isfile, join
@@ -8,7 +5,6 @@ import yaml
 from pathlib import Path
 from sklearn.model_selection import StratifiedKFold
 
-# %%
 # set basic params and load file list
 cross_val_splits = 5
 num_shuffels = 5
@@ -50,8 +46,6 @@ test_filelist = [
 list_len = len(training_filelist)
 print(training_filelist[:2])
 
-
-# %%
 # shuffle labeled/unlabled
 for shuffle in range(num_shuffels):
     yaml_dict = {}
@@ -77,7 +71,7 @@ for shuffle in range(num_shuffels):
             count += 1
 
         # save to yaml
-        ## e.g 1/4 -> 1_4 for folder name
+        # e.g 1/4 -> 1_4 for folder name
         zw = list(split)
         if len(zw) > 1:
             zw[1] = "_"
@@ -87,8 +81,7 @@ for shuffle in range(num_shuffels):
         Path(yaml_path).mkdir(parents=True, exist_ok=True)
         with open(yaml_path + "/split.yaml", "w+") as outfile:
             yaml.dump(yaml_dict, outfile, default_flow_style=False)
-
-## test yaml file
+# test yaml file
 yaml_dict = {}
 yaml_path = rf"dataset/splits/{dataset}/"
 Path(yaml_path).mkdir(parents=True, exist_ok=True)

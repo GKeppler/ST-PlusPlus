@@ -1,19 +1,8 @@
-import os
-import logging
 from argparse import ArgumentParser
-from collections import OrderedDict
 from model.semseg.base import BaseNet
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision.transforms as transforms
-from torch import optim
-from torch.utils.data import DataLoader, random_split
-from torch.utils.data.distributed import DistributedSampler
-
-import pytorch_lightning as pl
-
 # this is a customized uent from https://github.com/milesial/Pytorch-UNet
 # it uses padding such that the input shape is the same as the output.
 # additional batchnormalization

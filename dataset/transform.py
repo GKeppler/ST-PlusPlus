@@ -3,6 +3,7 @@ from PIL import Image, ImageOps, ImageFilter
 import random
 import torch
 from torchvision import transforms
+import cv2
 
 
 def crop(img, mask, size):
@@ -144,8 +145,8 @@ def cutout(
         else:
             value = np.random.uniform(value_min, value_max)
 
-        img[y : y + erase_h, x : x + erase_w] = value
-        mask[y : y + erase_h, x : x + erase_w] = 255
+        img[y: y + erase_h, x: x + erase_w] = value
+        mask[y: y + erase_h, x: x + erase_w] = 255
 
         img = Image.fromarray(img.astype(np.uint8))
         mask = Image.fromarray(mask.astype(np.uint8))
@@ -154,10 +155,6 @@ def cutout(
 
 
 # from https://github.com/marinbenc/medical-polar-training/blob/main/polar_transformations.py
-import cv2
-import numpy as np
-
-
 def to_polar(img, mask, center=None):
     img = np.float32(img)
     mask = np.float32(mask)

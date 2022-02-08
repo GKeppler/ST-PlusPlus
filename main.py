@@ -119,7 +119,7 @@ def main(args):
         exit("Please specify reliable-id-path in ST++.")
 
     criterion = CrossEntropyLoss()  # ignore_index=255) 255 is white is melanoma
-    ## changed crop from None to args.crop_size
+    # changed crop from None to args.crop_size
     valset = SemiDataset(
         args.dataset, args.data_root, "val", args.crop_size, args.split_file_path
     )
@@ -608,7 +608,7 @@ def select_reliable(models, dataloader, args):
     yaml_dict[args.val_split] = dict(
         labeled=labeled_ids,
         reliable=[i[0] for i in id_to_reliability[: len(id_to_reliability) // 2]],
-        unreliable=[i[0] for i in id_to_reliability[len(id_to_reliability) // 2 :]],
+        unreliable=[i[0] for i in id_to_reliability[len(id_to_reliability) // 2:]],
     )
     # save to yaml
     with open(

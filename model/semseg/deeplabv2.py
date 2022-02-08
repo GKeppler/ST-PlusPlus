@@ -1,6 +1,4 @@
 from model.semseg.base import BaseNet
-
-import torch
 from torch import nn
 import torch.nn.functional as F
 

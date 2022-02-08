@@ -1,5 +1,3 @@
-import os
-import random
 import yaml
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
@@ -27,7 +25,7 @@ class IsicDermoDataModule(pl.LightningDataModule):
         self.train_yaml_path = train_yaml_path
         self.test_yaml_path = test_yaml_path
         self.pseudo_mask_path = pseudo_mask_path
-        ##transformations not used currently
+        # transformations not used currently
         # self.train_transforms = train_transforms
         # self.train_transforms_unlabeled = (
         #     train_transforms_unlabeled

@@ -2,23 +2,19 @@ from dataset.semi import SemiDataset
 from model.semseg.deeplabv2 import DeepLabV2
 from model.semseg.deeplabv3plus import DeepLabV3Plus
 from model.semseg.pspnet import PSPNet
-from model.semseg.base import BaseNet
 from model.semseg.unet import Unet
-from utils import count_params, meanIOU, color_map, mulitmetrics
+from utils import mulitmetrics
 
 import argparse
-from copy import deepcopy
 import numpy as np
 import os
-from PIL import Image
 import torch
-from torch.nn import CrossEntropyLoss, DataParallel
+from torch.nn import DataParallel
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import wandb
 import cv2
-import yaml
 
 MODE = None
 global step_train

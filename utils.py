@@ -1,5 +1,4 @@
 import numpy as np
-from PIL import Image
 
 EPS = 1e-10
 

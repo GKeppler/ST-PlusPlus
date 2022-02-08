@@ -6,8 +6,8 @@ from dataset.transform import (
     blur,
     cutout,
     resize_crop,
-    to_polar,
-    to_cart,
+    # to_polar,
+    # to_cart,
 )
 
 import math
@@ -62,9 +62,7 @@ class SemiDataset(Dataset):
                     self.unlabeled_ids = split_dict["unreliable"]
                 # multiply label to match the cound of unlabled
                 self.ids = (
-                    self.labeled_ids
-                    * math.ceil(len(self.unlabeled_ids) / len(self.labeled_ids))
-                    + self.unlabeled_ids
+                    self.labeled_ids * math.ceil(len(self.unlabeled_ids) / len(self.labeled_ids)) + self.unlabeled_ids
                 )
         elif mode == "test":
             with open(split_file_path, "r") as file:

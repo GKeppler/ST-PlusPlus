@@ -1,26 +1,23 @@
-from turtle import back
 from model.backbone.resnet import resnet50, resnet101, resnet18
 
-from torch import nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 from torch.nn import CrossEntropyLoss
-from torch.optim import SGD, Adam
-from utils import count_params, meanIOU, color_map
+from torch.optim import SGD
+from utils import meanIOU, color_map
 import torch
-from statistics import mean
 import os
 from PIL import Image
 import numpy as np
 
 
 class BaseNet(pl.LightningModule):
-    @staticmethod
-    def add_model_specific_args(parent_parser):
-        parser = parent_parser.add_argument_group("BaseNet")
-        # initial learing rate
-        # parser.add_argument("--lr", type=float, default=0.001)
-        return parent_parser
+    # @staticmethod
+    # def add_model_specific_args(parent_parser):
+    #     parser = parent_parser.add_argument_group("BaseNet")
+    #     # initial learing rate
+    #     # parser.add_argument("--lr", type=float, default=0.001)
+    #     return parent_parser
 
     def __init__(self, backbone, nclass, args):
         super(BaseNet, self).__init__()
@@ -121,7 +118,7 @@ class BaseNet(pl.LightningModule):
         pred = self(img)
         pred = torch.argmax(pred, dim=1).cpu()
 
-        ########for metric checking progressbar callback not implemented
+        # for metric checking progressbar callback not implemented
         # self.predict_metric.add_batch(pred.numpy(), mask.cpu().numpy())
         # mIOU = self.predict_metric.evaluate()[-1]
         pred = Image.fromarray(pred.squeeze(0).numpy().astype(np.uint8), mode="P")

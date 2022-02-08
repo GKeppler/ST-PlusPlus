@@ -1,6 +1,6 @@
-## this notebook resizes all images in a folder to center crop
+# this notebook resizes all images in a folder to center crop
 from PIL import Image
-import os, sys
+import os
 
 path = "/home/gustav/datasets/ISIC_Demo_2017/"
 old_name = "ISIC_Demo_2017"

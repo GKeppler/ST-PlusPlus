@@ -1,4 +1,3 @@
-
 import pandas as pd
 import random
 import yaml
@@ -59,7 +58,7 @@ for shuffle in range(num_shuffels):
             count += 1
 
         # save to yaml
-        ## e.g 1/4 -> 1_4 for folder name
+        # e.g 1/4 -> 1_4 for folder name
         zw = list(split)
         if len(zw) > 1:
             zw[1] = "_"
@@ -70,7 +69,7 @@ for shuffle in range(num_shuffels):
         with open(yaml_path + "/split.yaml", "w+") as outfile:
             yaml.dump(yaml_dict, outfile, default_flow_style=False)
 
-## test yaml file
+# test yaml file
 yaml_dict = {}
 yaml_path = rf"dataset/splits/{dataset}/"
 Path(yaml_path).mkdir(parents=True, exist_ok=True)

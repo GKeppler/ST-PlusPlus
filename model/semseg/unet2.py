@@ -1,4 +1,3 @@
-from model.semseg.base import BaseNet
 import os
 import torch
 import torch.nn as nn
