@@ -3,6 +3,7 @@ from PIL import Image
 
 EPS = 1e-10
 
+
 def count_params(model):
     param_num = sum(p.numel() for p in model.parameters())
     return param_num / 1e6
@@ -16,8 +17,9 @@ class meanIOU:
     def _fast_hist(self, label_pred, label_true):
         mask = (label_true >= 0) & (label_true < self.num_classes)
         hist = np.bincount(
-            self.num_classes * label_true[mask].astype(int) +
-            label_pred[mask], minlength=self.num_classes ** 2).reshape(self.num_classes, self.num_classes)
+            self.num_classes * label_true[mask].astype(int) + label_pred[mask],
+            minlength=self.num_classes**2,
+        ).reshape(self.num_classes, self.num_classes)
         return hist
 
     def add_batch(self, predictions, gts):
@@ -25,11 +27,14 @@ class meanIOU:
             self.hist += self._fast_hist(lp.flatten(), lt.flatten())
 
     def evaluate(self):
-        iu = np.diag(self.hist) / (self.hist.sum(axis=1) + self.hist.sum(axis=0) - np.diag(self.hist) + EPS)
+        iu = np.diag(self.hist) / (
+            self.hist.sum(axis=1) + self.hist.sum(axis=0) - np.diag(self.hist) + EPS
+        )
         return iu, np.nanmean(iu)
 
+
 class mulitmetrics:
-    #from https://github.com/kevinzakka/pytorch-goodies/blob/c039691f349be9f21527bb38b907a940bfc5e8f3/metrics.py
+    # from https://github.com/kevinzakka/pytorch-goodies/blob/c039691f349be9f21527bb38b907a940bfc5e8f3/metrics.py
     def __init__(self, num_classes):
         self.num_classes = num_classes
         self.hist = np.zeros((num_classes, num_classes))
@@ -37,8 +42,9 @@ class mulitmetrics:
     def _fast_hist(self, label_pred, label_true):
         mask = (label_true >= 0) & (label_true < self.num_classes)
         hist = np.bincount(
-            self.num_classes * label_true[mask].astype(int) +
-            label_pred[mask], minlength=self.num_classes ** 2).reshape(self.num_classes, self.num_classes)
+            self.num_classes * label_true[mask].astype(int) + label_pred[mask],
+            minlength=self.num_classes**2,
+        ).reshape(self.num_classes, self.num_classes)
         return hist
 
     def add_batch(self, predictions, gts):
@@ -49,15 +55,15 @@ class mulitmetrics:
         A_inter_B = np.diag(self.hist)
         A = self.hist.sum(axis=1)
         B = self.hist.sum(axis=0)
-        #jaccard_index
+        # jaccard_index
         iu = A_inter_B / (A + B - A_inter_B + EPS)
         meanIOU = np.nanmean(iu)
 
-        #dice_coefficient
+        # dice_coefficient
         dice = (2 * A_inter_B) / (A + B + EPS)
         avg_dice = np.nanmean(dice)
 
-        #overall_pixel_accuracy
+        # overall_pixel_accuracy
         correct = A_inter_B.sum()
         total = self.hist.sum()
         overall_acc = correct / (total + EPS)
@@ -65,11 +71,11 @@ class mulitmetrics:
         return overall_acc, meanIOU, avg_dice
 
 
+def color_map(dataset="pascal"):
+    cmap = np.zeros((256, 3), dtype="uint8")
 
-def color_map(dataset='pascal'):
-    cmap = np.zeros((256, 3), dtype='uint8')
+    if dataset == "pascal" or dataset == "coco":
 
-    if dataset == 'pascal' or dataset == 'coco':
         def bitget(byteval, idx):
             return (byteval & (1 << idx)) != 0
 
@@ -77,15 +83,14 @@ def color_map(dataset='pascal'):
             r = g = b = 0
             c = i
             for j in range(8):
-                r = r | (bitget(c, 0) << 7-j)
-                g = g | (bitget(c, 1) << 7-j)
-                b = b | (bitget(c, 2) << 7-j)
+                r = r | (bitget(c, 0) << 7 - j)
+                g = g | (bitget(c, 1) << 7 - j)
+                b = b | (bitget(c, 2) << 7 - j)
                 c = c >> 3
 
             cmap[i] = np.array([r, g, b])
 
-
-    elif dataset == 'cityscapes':
+    elif dataset == "cityscapes":
         cmap[0] = np.array([128, 64, 128])
         cmap[1] = np.array([244, 35, 232])
         cmap[2] = np.array([70, 70, 70])
@@ -98,21 +103,20 @@ def color_map(dataset='pascal'):
         cmap[9] = np.array([152, 251, 152])
         cmap[10] = np.array([70, 130, 180])
         cmap[11] = np.array([220, 20, 60])
-        cmap[12] = np.array([255,  0,  0])
-        cmap[13] = np.array([0,  0, 142])
-        cmap[14] = np.array([0,  0, 70])
+        cmap[12] = np.array([255, 0, 0])
+        cmap[13] = np.array([0, 0, 142])
+        cmap[14] = np.array([0, 0, 70])
         cmap[15] = np.array([0, 60, 100])
         cmap[16] = np.array([0, 80, 100])
-        cmap[17] = np.array([0,  0, 230])
+        cmap[17] = np.array([0, 0, 230])
         cmap[18] = np.array([119, 11, 32])
 
-    elif dataset == 'melanoma': 
+    elif dataset == "melanoma":
         cmap[1] = np.array([255, 255, 255])
 
-    elif dataset == 'breastCancer':
+    elif dataset == "breastCancer":
         cmap[1] = np.array([255, 255, 255])
         # cmap[1] = np.array([128, 64, 128]) #benign
         # cmap[2] = np.array([244, 35, 232]) #malign
-
 
     return cmap

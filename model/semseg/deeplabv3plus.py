@@ -15,18 +15,21 @@ class DeepLabV3Plus(BaseNet):
 
         self.head = ASPPModule(high_level_channels, (12, 24, 36))
 
-        self.reduce = nn.Sequential(nn.Conv2d(low_level_channels, 48, 1, bias=False),
-                                    nn.BatchNorm2d(48),
-                                    nn.ReLU(True))
+        self.reduce = nn.Sequential(
+            nn.Conv2d(low_level_channels, 48, 1, bias=False),
+            nn.BatchNorm2d(48),
+            nn.ReLU(True),
+        )
 
-        self.fuse = nn.Sequential(nn.Conv2d(high_level_channels // 8 + 48, 256, 3, padding=1, bias=False),
-                                  nn.BatchNorm2d(256),
-                                  nn.ReLU(True),
-
-                                  nn.Conv2d(256, 256, 3, padding=1, bias=False),
-                                  nn.BatchNorm2d(256),
-                                  nn.ReLU(True),
-                                  nn.Dropout(0.1, False))
+        self.fuse = nn.Sequential(
+            nn.Conv2d(high_level_channels // 8 + 48, 256, 3, padding=1, bias=False),
+            nn.BatchNorm2d(256),
+            nn.ReLU(True),
+            nn.Conv2d(256, 256, 3, padding=1, bias=False),
+            nn.BatchNorm2d(256),
+            nn.ReLU(True),
+            nn.Dropout(0.1, False),
+        )
 
         self.classifier = nn.Conv2d(256, nclass, 1, bias=True)
 
@@ -50,20 +53,30 @@ class DeepLabV3Plus(BaseNet):
 
 
 def ASPPConv(in_channels, out_channels, atrous_rate):
-    block = nn.Sequential(nn.Conv2d(in_channels, out_channels, 3, padding=atrous_rate,
-                                    dilation=atrous_rate, bias=False),
-                          nn.BatchNorm2d(out_channels),
-                          nn.ReLU(True))
+    block = nn.Sequential(
+        nn.Conv2d(
+            in_channels,
+            out_channels,
+            3,
+            padding=atrous_rate,
+            dilation=atrous_rate,
+            bias=False,
+        ),
+        nn.BatchNorm2d(out_channels),
+        nn.ReLU(True),
+    )
     return block
 
 
 class ASPPPooling(pl.LightningModule):
     def __init__(self, in_channels, out_channels):
         super(ASPPPooling, self).__init__()
-        self.gap = nn.Sequential(nn.AdaptiveAvgPool2d(1),
-                                 nn.Conv2d(in_channels, out_channels, 1, bias=False),
-                                 nn.BatchNorm2d(out_channels),
-                                 nn.ReLU(True))
+        self.gap = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(in_channels, out_channels, 1, bias=False),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(True),
+        )
 
     def forward(self, x):
         h, w = x.shape[-2:]
@@ -77,18 +90,22 @@ class ASPPModule(pl.LightningModule):
         out_channels = in_channels // 8
         rate1, rate2, rate3 = atrous_rates
 
-        self.b0 = nn.Sequential(nn.Conv2d(in_channels, out_channels, 1, bias=False),
-                                nn.BatchNorm2d(out_channels),
-                                nn.ReLU(True))
+        self.b0 = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, 1, bias=False),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(True),
+        )
         self.b1 = ASPPConv(in_channels, out_channels, rate1)
         self.b2 = ASPPConv(in_channels, out_channels, rate2)
         self.b3 = ASPPConv(in_channels, out_channels, rate3)
         self.b4 = ASPPPooling(in_channels, out_channels)
 
-        self.project = nn.Sequential(nn.Conv2d(5 * out_channels, out_channels, 1, bias=False),
-                                     nn.BatchNorm2d(out_channels),
-                                     nn.ReLU(True),
-                                     nn.Dropout2d(0.5, False))
+        self.project = nn.Sequential(
+            nn.Conv2d(5 * out_channels, out_channels, 1, bias=False),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(True),
+            nn.Dropout2d(0.5, False),
+        )
 
     def forward(self, x):
         feat0 = self.b0(x)

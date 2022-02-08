@@ -36,10 +36,12 @@ def normalize(img, mask=None):
     :param mask: PIL image, corresponding mask
     :return: normalized torch tensor of image and mask
     """
-    img = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-    ])(img)
+    img = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+        ]
+    )(img)
     if mask is not None:
         mask = torch.from_numpy(np.array(mask)).long()
         return img, mask
@@ -48,7 +50,9 @@ def normalize(img, mask=None):
 
 def resize(img, mask, base_size, ratio_range):
     w, h = img.size
-    long_side = random.randint(int(base_size * ratio_range[0]), int(base_size * ratio_range[1]))
+    long_side = random.randint(
+        int(base_size * ratio_range[0]), int(base_size * ratio_range[1])
+    )
 
     if h > w:
         oh = long_side
@@ -61,26 +65,28 @@ def resize(img, mask, base_size, ratio_range):
     mask = mask.resize((ow, oh), Image.NEAREST)
     return img, mask
 
-#center crop to sqaure, then base_size
+
+# center crop to sqaure, then base_size
 def resize_crop(img, mask, base_size):
     w, h = img.size
     if h > w:
         crop_size = w
     else:
         crop_size = h
-    left = (w - crop_size)/2
-    top = (h - crop_size)/2
-    right = (w + crop_size)/2
-    bottom = (h + crop_size)/2
-    #make it sqaure
+    left = (w - crop_size) / 2
+    top = (h - crop_size) / 2
+    right = (w + crop_size) / 2
+    bottom = (h + crop_size) / 2
+    # make it sqaure
     img = img.crop((left, top, right, bottom))
     mask = mask.crop((left, top, right, bottom))
 
-    #resize to base_size
+    # resize to base_size
     img = img.resize((base_size, base_size), Image.BILINEAR)
     mask = mask.resize((base_size, base_size), Image.NEAREST)
 
     return img, mask
+
 
 def downsample(img, mask, base_size):
     w, h = img.size
@@ -104,8 +110,18 @@ def blur(img, p=0.5):
     return img
 
 
-def cutout(img, mask, p=0.5, size_min=0.02, size_max=0.4, ratio_1=0.3,
-           ratio_2=1/0.3, value_min=0, value_max=255, pixel_level=True):
+def cutout(
+    img,
+    mask,
+    p=0.5,
+    size_min=0.02,
+    size_max=0.4,
+    ratio_1=0.3,
+    ratio_2=1 / 0.3,
+    value_min=0,
+    value_max=255,
+    pixel_level=True,
+):
     if random.random() < p:
         img = np.array(img)
         mask = np.array(mask)
@@ -128,8 +144,8 @@ def cutout(img, mask, p=0.5, size_min=0.02, size_max=0.4, ratio_1=0.3,
         else:
             value = np.random.uniform(value_min, value_max)
 
-        img[y:y + erase_h, x:x + erase_w] = value
-        mask[y:y + erase_h, x:x + erase_w] = 255
+        img[y : y + erase_h, x : x + erase_w] = value
+        mask[y : y + erase_h, x : x + erase_w] = 255
 
         img = Image.fromarray(img.astype(np.uint8))
         mask = Image.fromarray(mask.astype(np.uint8))
@@ -140,19 +156,22 @@ def cutout(img, mask, p=0.5, size_min=0.02, size_max=0.4, ratio_1=0.3,
 # from https://github.com/marinbenc/medical-polar-training/blob/main/polar_transformations.py
 import cv2
 import numpy as np
+
+
 def to_polar(img, mask, center=None):
     img = np.float32(img)
     mask = np.float32(mask)
-    value = np.sqrt(((img.shape[0]/2.0)**2.0)+((img.shape[1]/2.0)**2.0))
+    value = np.sqrt(((img.shape[0] / 2.0) ** 2.0) + ((img.shape[1] / 2.0) ** 2.0))
     if center is None:
-        center = (img.shape[0]//2, img.shape[1]//2)
-    polar_image = cv2.linearPolar(img, center, value, cv2.WARP_FILL_OUTLIERS)  
-    polar_mask = cv2.linearPolar(mask, center, value, cv2.WARP_FILL_OUTLIERS) 
+        center = (img.shape[0] // 2, img.shape[1] // 2)
+    polar_image = cv2.linearPolar(img, center, value, cv2.WARP_FILL_OUTLIERS)
+    polar_mask = cv2.linearPolar(mask, center, value, cv2.WARP_FILL_OUTLIERS)
     polar_image = cv2.rotate(polar_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
     polar_mask = cv2.rotate(polar_mask, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    polar_image = Image.fromarray(polar_image.astype('uint8'))
-    polar_mask = Image.fromarray(polar_mask.astype('uint8'))
+    polar_image = Image.fromarray(polar_image.astype("uint8"))
+    polar_mask = Image.fromarray(polar_mask.astype("uint8"))
     return polar_image, polar_mask
+
 
 def to_cart(polar_image, polar_mask, center=None):
     polar_image = np.float32(polar_image)
@@ -160,10 +179,16 @@ def to_cart(polar_image, polar_mask, center=None):
     polar_image = cv2.rotate(polar_image, cv2.ROTATE_90_CLOCKWISE)
     polar_mask = cv2.rotate(polar_mask, cv2.ROTATE_90_CLOCKWISE)
     if center is None:
-        center = (polar_image.shape[1]//2, polar_image.shape[0]//2)
-    value = np.sqrt(((polar_image.shape[1]/2.0)**2.0)+((polar_image.shape[0]/2.0)**2.0))
-    img = cv2.linearPolar(polar_image, center, value, cv2.WARP_FILL_OUTLIERS + cv2.WARP_INVERSE_MAP)
-    mask = cv2.linearPolar(polar_mask, center, value, cv2.WARP_FILL_OUTLIERS + cv2.WARP_INVERSE_MAP)
-    img = Image.fromarray(img.astype('uint8'))
-    mask = Image.fromarray(mask.astype('uint8'))
+        center = (polar_image.shape[1] // 2, polar_image.shape[0] // 2)
+    value = np.sqrt(
+        ((polar_image.shape[1] / 2.0) ** 2.0) + ((polar_image.shape[0] / 2.0) ** 2.0)
+    )
+    img = cv2.linearPolar(
+        polar_image, center, value, cv2.WARP_FILL_OUTLIERS + cv2.WARP_INVERSE_MAP
+    )
+    mask = cv2.linearPolar(
+        polar_mask, center, value, cv2.WARP_FILL_OUTLIERS + cv2.WARP_INVERSE_MAP
+    )
+    img = Image.fromarray(img.astype("uint8"))
+    mask = Image.fromarray(mask.astype("uint8"))
     return img, mask

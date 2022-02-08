@@ -12,7 +12,16 @@ class DeepLabV2(BaseNet):
         self.classifier = nn.ModuleList()
         for dilation in [6, 12, 18, 24]:
             self.classifier.append(
-                nn.Conv2d(2048, nclass, kernel_size=3, stride=1, padding=dilation, dilation=dilation, bias=True))
+                nn.Conv2d(
+                    2048,
+                    nclass,
+                    kernel_size=3,
+                    stride=1,
+                    padding=dilation,
+                    dilation=dilation,
+                    bias=True,
+                )
+            )
 
         for m in self.classifier:
             m.weight.data.normal_(0, 0.01)
@@ -24,7 +33,7 @@ class DeepLabV2(BaseNet):
 
         out = self.classifier[0](x)
         for i in range(len(self.classifier) - 1):
-            out += self.classifier[i+1](x)
+            out += self.classifier[i + 1](x)
 
         out = F.interpolate(out, size=(h, w), mode="bilinear", align_corners=True)
 
